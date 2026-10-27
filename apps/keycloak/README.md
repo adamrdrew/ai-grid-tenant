@@ -58,8 +58,8 @@ the cluster's approved secret-access process.
 The `keycloak` Route omits `spec.host`, so OpenShift assigns the public host
 from the cluster's ingress domain. An ACM Policy uses a hub-template Route
 lookup to render that assigned host into the `keycloak-public-url` ConfigMap on
-every cluster selected by the dedicated `keycloak-public-url-clusters`
-Placement. The Deployment consumes the ConfigMap for
+the hub, the one cluster the dedicated `keycloak-public-url-clusters`
+Placement selects (ACM's `local-cluster=true` label). The Deployment consumes the ConfigMap for
 `KEYCLOAK_PUBLIC_URL` and `KC_HOSTNAME`, so no cluster-specific URL is stored
 in Git.
 
