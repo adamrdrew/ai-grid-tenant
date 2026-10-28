@@ -2,8 +2,8 @@ apiVersion: maas.opendatahub.io/v1alpha1
 kind: MaaSSubscription
 metadata:
   annotations:
-    openshift.io/display-name: ocp-users
-  name: ocp-users
+    openshift.io/display-name: tenant-42c3e46f-2477-44d7-a85b-d3b43f6b31fa-users
+  name: tenant-42c3e46f-2477-44d7-a85b-d3b43f6b31fa-users
   namespace: models-as-a-service
 spec:
   organization:
@@ -28,8 +28,8 @@ apiVersion: maas.opendatahub.io/v1alpha1
 kind: MaaSAuthPolicy
 metadata:
   annotations:
-    openshift.io/description: Auth policy created for subscription "ocp-users"
-  name: ocp-users-policy
+    openshift.io/description: Auth policy created for subscription "tenant-42c3e46f-2477-44d7-a85b-d3b43f6b31fa-users"
+  name: tenant-42c3e46f-2477-44d7-a85b-d3b43f6b31fa-users
   namespace: models-as-a-service
 spec:
   modelRefs:

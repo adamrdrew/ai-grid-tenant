@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: acm-models-maas-externalmodels
+  name: acm-models-maas
   namespace: openshift-gitops
   annotations:
     argocd.argoproj.io/sync-wave: "3"
@@ -9,23 +9,26 @@ spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   generators:
-    - clusters:
-        selector:
+    - clusterDecisionResource:
+        configMapRef: acm-placement
+        labelSelector:
           matchLabels:
-            apps.open-cluster-management.io/acm-cluster: "true"
+            cluster.open-cluster-management.io/placement: acm-models-maas
   syncPolicy:
     applicationsSync: sync
     preserveResourcesOnDeletion: false
   template:
     metadata:
-      name: 'acm-models-maas-externalmodels-{{.name}}'
+      name: 'acm-models-maas-{{.name}}'
       namespace: openshift-gitops
     spec:
       project: default
       source:
         repoURL: https://github.com/kahowell/ai-grid-tenant.git
         targetRevision: HEAD
-        path: apps/acm-models/externalmodels
+        path: apps/acm-models/maas
+        directory:
+          recurse: true
       destination:
         server: '{{.server}}'
         namespace: models-as-a-service
