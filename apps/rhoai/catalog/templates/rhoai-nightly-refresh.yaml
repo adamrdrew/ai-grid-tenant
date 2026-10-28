@@ -62,6 +62,38 @@ subjects:
     namespace: {{ .Values.refresh.subscriptionNamespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rhoai-nightly-refresh
+  namespace: {{ .Values.refresh.modelControllerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rhoai-nightly-refresh
+  namespace: {{ .Values.refresh.modelControllerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rhoai-nightly-refresh
+subjects:
+  - kind: ServiceAccount
+    name: rhoai-nightly-refresh
+    namespace: {{ .Values.refresh.subscriptionNamespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: rhoai-nightly-refresh
@@ -124,6 +156,9 @@ spec:
               subscription_name="${SUBSCRIPTION_NAME}"
               catalog_settle_seconds="${CATALOG_SETTLE_SECONDS}"
               wait_timeout="${WAIT_TIMEOUT_SECONDS}"
+              model_controller_namespace="${MODEL_CONTROLLER_NAMESPACE}"
+              model_controller_name="${MODEL_CONTROLLER_NAME}"
+              model_controller_wait_timeout="${MODEL_CONTROLLER_WAIT_TIMEOUT_SECONDS}"
 
               sleep "${catalog_settle_seconds}"
               channel_records="$(oc get packagemanifest "${package}" -n "${catalog_namespace}" \
@@ -163,6 +198,7 @@ spec:
 
               deadline=$((SECONDS + wait_timeout))
               last_log=0
+              olm_refreshed=false
               while (( SECONDS < deadline )); do
                 state="$(oc get subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}" \
                   -o jsonpath='{.status.state}' 2>/dev/null || true)"
@@ -173,7 +209,8 @@ spec:
 
                 if [[ "${state}" == "AtLatestKnown" && "${current_csv}" == "${desired_csv}" && "${current_image}" == "${catalog_image}" ]]; then
                   echo "OLM refreshed ${desired_csv} to ${catalog_image}"
-                  exit 0
+                  olm_refreshed=true
+                  break
                 fi
 
                 if (( SECONDS - last_log >= 15 )); then
@@ -182,6 +219,54 @@ spec:
                 fi
                 sleep 5
               done
+
+              if [[ "${olm_refreshed}" != true ]]; then
+                echo "ERROR: timed out after ${wait_timeout}s waiting for OLM to refresh ${desired_csv}" >&2
+                exit 1
+              fi
+
+              desired_model_controller_image="$(oc get csv "${desired_csv}" -n "${subscription_namespace}" \
+                -o jsonpath='{range .spec.relatedImages[*]}{.name}={.image}{"\n"}{end}' \
+                | grep -F 'odh_model_controller_image=' | cut -d'=' -f2-)"
+              if [[ -z "${desired_model_controller_image}" ]]; then
+                echo "ERROR: CSV ${desired_csv} has no odh_model_controller_image related image" >&2
+                exit 1
+              fi
+
+              current_model_controller_image="$(oc get deployment "${model_controller_name}" -n "${model_controller_namespace}" \
+                -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
+              echo "Desired model-controller image: ${desired_model_controller_image}"
+              echo "Current model-controller image: ${current_model_controller_image:-<missing>}"
+
+              if [[ "${current_model_controller_image}" != "${desired_model_controller_image}" ]]; then
+                echo "Refreshing ${model_controller_namespace}/${model_controller_name} Deployment"
+                oc delete deployment "${model_controller_name}" -n "${model_controller_namespace}" --ignore-not-found=true
+
+                model_controller_deadline=$((SECONDS + model_controller_wait_timeout))
+                model_controller_last_log=0
+                while (( SECONDS < model_controller_deadline )); do
+                  current_model_controller_image="$(oc get deployment "${model_controller_name}" -n "${model_controller_namespace}" \
+                    -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
+                  model_controller_available="$(oc get deployment "${model_controller_name}" -n "${model_controller_namespace}" \
+                    -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null || true)"
+
+                  if [[ "${current_model_controller_image}" == "${desired_model_controller_image}" && "${model_controller_available}" == "True" ]]; then
+                    echo "Model controller refreshed to ${desired_model_controller_image}"
+                    exit 0
+                  fi
+
+                  if (( SECONDS - model_controller_last_log >= 15 )); then
+                    echo "Waiting for model-controller refresh: image=${current_model_controller_image:-<missing>} available=${model_controller_available:-<missing>}"
+                    model_controller_last_log="${SECONDS}"
+                  fi
+                  sleep 5
+                done
+
+                echo "ERROR: timed out after ${model_controller_wait_timeout}s waiting for model-controller refresh" >&2
+                exit 1
+              fi
+
+              echo "Model-controller image already matches the CSV; no refresh required"
 
               echo "ERROR: timed out after ${wait_timeout}s waiting for OLM to refresh ${desired_csv}" >&2
               exit 1
@@ -200,6 +285,12 @@ spec:
               value: {{ .Values.refresh.catalogSettleSeconds | quote }}
             - name: WAIT_TIMEOUT_SECONDS
               value: {{ .Values.refresh.waitTimeoutSeconds | quote }}
+            - name: MODEL_CONTROLLER_NAMESPACE
+              value: {{ .Values.refresh.modelControllerNamespace | quote }}
+            - name: MODEL_CONTROLLER_NAME
+              value: {{ .Values.refresh.modelControllerName | quote }}
+            - name: MODEL_CONTROLLER_WAIT_TIMEOUT_SECONDS
+              value: {{ .Values.refresh.modelControllerWaitTimeoutSeconds | quote }}
           resources:
             {{- toYaml .Values.refresh.resources | nindent 12 }}
 {{- end }}
