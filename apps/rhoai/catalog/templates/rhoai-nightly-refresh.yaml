@@ -23,27 +23,19 @@ rules:
       - subscriptions
     verbs:
       - get
+      - delete
   - apiGroups:
       - operators.coreos.com
     resources:
       - subscriptions/status
     verbs:
       - get
-      - patch
   - apiGroups:
       - operators.coreos.com
     resources:
       - clusterserviceversions
     verbs:
       - get
-      - delete
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - installplans
-    verbs:
-      - get
-      - delete
   - apiGroups:
       - apps
     resources:
@@ -167,19 +159,8 @@ spec:
                 echo "Installed operator image already matches the catalog; no OLM refresh required"
                 olm_refreshed=true
               else
-                old_install_plan="$(oc get subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}" \
-                  -o jsonpath='{.status.installPlanRef.name}' 2>/dev/null || true)"
-
-                echo "Refreshing ${subscription_namespace}/${desired_csv} through OLM"
-                oc delete csv "${desired_csv}" -n "${subscription_namespace}" --ignore-not-found=true
-
-                if [[ -n "${old_install_plan}" ]]; then
-                  oc delete installplan.operators.coreos.com "${old_install_plan}" -n "${subscription_namespace}" --ignore-not-found=true
-                fi
-
-                oc patch subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}" \
-                  --subresource=status --type=merge \
-                  -p '{"status":{"state":"None","currentCSV":"","installedCSV":"","installPlanRef":null,"installplan":null}}'
+                echo "Refreshing ${subscription_namespace}/${subscription_name} by recreating the Subscription"
+                oc delete subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}"
 
                 deadline=$((SECONDS + wait_timeout))
                 last_log=0
