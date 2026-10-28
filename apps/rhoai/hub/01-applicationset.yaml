@@ -63,9 +63,6 @@ spec:
               - name: baseDomain
                 value: '{{ trimPrefix "api." (trimSuffix ":6443" (trimPrefix "https://" .server)) }}'
                 forceString: true
-        - repoURL: https://github.com/kahowell/ai-grid-tenant.git
-          targetRevision: HEAD
-          path: apps/rhoai/manifests
         # The enrollment service runs on the hub, so a managed cluster excludes these.
         - repoURL: https://github.com/kahowell/ai-grid-tenant.git
           targetRevision: HEAD
