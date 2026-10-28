@@ -51,6 +51,13 @@ metadata:
 spec:
   clusterSets:
     - global
+  # Only the hub: Keycloak and the ConfigMap's only readers run there. ACM
+  # labels the hub's ManagedCluster local-cluster=true, whatever its name.
+  predicates:
+    - requiredClusterSelector:
+        labelSelector:
+          matchLabels:
+            local-cluster: "true"
 ---
 apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
