@@ -141,16 +141,17 @@ components:
                           - models-as-a-service
                           - redhat-ai-gateway-infra
 
-# Grid runtimes from the installed bundle; the subcharts otherwise fall back to
-# ghcr.io/praxis-proxy. Re-read after a catalog bump:
+# Grid v0.3.0-rc.1 runtimes from the RHDS build at 992b076.
+# The subcharts otherwise fall back to ghcr.io/praxis-proxy. Keep these pins
+# aligned with the Grid operator payload when updating the catalog:
 #   oc -n redhat-ods-operator get deploy rhods-operator -o json | jq -r '
 #     .spec.template.spec.containers[].env[] | select(.name|test("PRAXIS_AI_GRID"))'
 global:
   relatedImages:
     - name: RELATED_IMAGE_ODH_PRAXIS_AI_GRID_GATEWAY_IMAGE
-      value: registry.redhat.io/rhoai/odh-praxis-ai-grid-gateway-rhel9@sha256:991f24ee2ce66b36bdc68f34f226d7fd81c6826a1221f1a3e0fde59fad78e1ea
+      value: registry.redhat.io/rhoai/odh-praxis-ai-grid-gateway-rhel9@sha256:17b43cd1aeeb879c20c069774391eecd09f48d8920b2262000726ff401a7f54b
     - name: RELATED_IMAGE_ODH_PRAXIS_AI_GRID_ENROLLMENT_IMAGE
-      value: registry.redhat.io/rhoai/odh-praxis-ai-grid-enrollment-rhel9@sha256:dc18cc2dd3a90c839b658fda30300f6248c3a0a0e643b422fe92b8abd2ecdcfd
+      value: registry.redhat.io/rhoai/odh-praxis-ai-grid-enrollment-rhel9@sha256:6dcbefe9f5496b014d4d588ec2bc3e295f6fbd3e1c5f2418145672476731b905
     # The bundle publishes this one as RELATED_IMAGE_POSTGRESQL_16_IMAGE.
     - name: RELATED_IMAGE_ODH_PRAXIS_AI_GRID_POSTGRES_IMAGE
       value: registry.redhat.io/rhel9/postgresql-16@sha256:435ba5c1d3f686cf8a45ae525b4d169ced6b33753bcfab99a1498bd9e6e99817
