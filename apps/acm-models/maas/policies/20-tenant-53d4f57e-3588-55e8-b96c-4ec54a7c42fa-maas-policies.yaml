@@ -2,8 +2,8 @@ apiVersion: maas.opendatahub.io/v1alpha1
 kind: MaaSSubscription
 metadata:
   annotations:
-    openshift.io/display-name: tenant-53d4f57e-3588-55e8-b96c-4ec54a7c42fa-carol
-  name: tenant-53d4f57e-3588-55e8-b96c-4ec54a7c42fa-carol
+    openshift.io/display-name: tenant-53d4f57e-3588-55e8-b96c-4ec54a7c42fa-bob
+  name: tenant-53d4f57e-3588-55e8-b96c-4ec54a7c42fa-bob
   namespace: models-as-a-service
 spec:
   organization:
@@ -16,15 +16,15 @@ spec:
         window: 1m
   owner:
     users:
-    - carol
+    - bob
   priority: 0
 ---
 apiVersion: maas.opendatahub.io/v1alpha1
 kind: MaaSAuthPolicy
 metadata:
   annotations:
-    openshift.io/description: Auth policy created for subscription "tenant-53d4f57e-3588-55e8-b96c-4ec54a7c42fa-carol"
-  name: tenant-53d4f57e-3588-55e8-b96c-4ec54a7c42fa-carol
+    openshift.io/description: Auth policy created for subscription "tenant-53d4f57e-3588-55e8-b96c-4ec54a7c42fa-bob"
+  name: tenant-53d4f57e-3588-55e8-b96c-4ec54a7c42fa-bob
   namespace: models-as-a-service
 spec:
   modelRefs:
@@ -32,4 +32,4 @@ spec:
     namespace: models-as-a-service
   subjects:
     users:
-    - carol
+    - bob
