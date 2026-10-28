@@ -17,6 +17,7 @@ cluster_admins:
   - rjjohnso
   - cchase
   - kverlaen
+  - ckyrillo
 
 hubResources:
   enabled: false
