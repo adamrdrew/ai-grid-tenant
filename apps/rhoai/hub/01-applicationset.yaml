@@ -53,6 +53,10 @@ spec:
           path: apps/rhoai/gateway-certs
           helm:
             releaseName: rhoai-gateway-certs
+            parameters:
+              - name: clusterNamespace
+                value: '{{ .name }}'
+                forceString: true
         # The enrollment service runs on the hub, so a managed cluster excludes these.
         - repoURL: https://github.com/kahowell/ai-grid-tenant.git
           targetRevision: HEAD

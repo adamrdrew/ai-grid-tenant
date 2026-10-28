@@ -1,3 +1,4 @@
+clusterNamespace: ""
 issuerName: rhoai-gateway-letsencrypt
 acmeServer: https://acme-v02.api.letsencrypt.org/directory
 certificates:

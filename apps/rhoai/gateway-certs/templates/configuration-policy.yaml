@@ -2,6 +2,7 @@ apiVersion: policy.open-cluster-management.io/v1
 kind: ConfigurationPolicy
 metadata:
   name: rhoai-gateway-certs
+  namespace: {{ required "clusterNamespace is required" .Values.clusterNamespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
