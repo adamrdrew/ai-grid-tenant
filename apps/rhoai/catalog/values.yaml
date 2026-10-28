@@ -1,0 +1,18 @@
+refresh:
+  enabled: true
+  package: rhods-operator
+  channel: stable-3.6
+  catalogNamespace: openshift-marketplace
+  subscriptionNamespace: redhat-ods-operator
+  subscriptionName: rhods-operator
+  image: registry.redhat.io/openshift4/ose-cli@sha256:75bd612f3d2b4dbddcbd7a48e12b5cb4d36e4a2683e7f48209e40596e0fbfc30
+  catalogSettleSeconds: 15
+  waitTimeoutSeconds: 600
+  activeDeadlineSeconds: 720
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

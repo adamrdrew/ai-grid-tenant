@@ -1,0 +1,203 @@
+{{- if .Values.refresh.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rhoai-nightly-refresh
+  namespace: {{ .Values.refresh.subscriptionNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rhoai-nightly-refresh
+  namespace: {{ .Values.refresh.subscriptionNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+  - apiGroups:
+      - operators.coreos.com
+    resources:
+      - subscriptions
+    verbs:
+      - get
+  - apiGroups:
+      - operators.coreos.com
+    resources:
+      - subscriptions/status
+    verbs:
+      - patch
+  - apiGroups:
+      - operators.coreos.com
+    resources:
+      - clusterserviceversions
+    verbs:
+      - get
+      - delete
+  - apiGroups:
+      - operators.coreos.com
+    resources:
+      - installplans
+    verbs:
+      - get
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rhoai-nightly-refresh
+  namespace: {{ .Values.refresh.subscriptionNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rhoai-nightly-refresh
+subjects:
+  - kind: ServiceAccount
+    name: rhoai-nightly-refresh
+    namespace: {{ .Values.refresh.subscriptionNamespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rhoai-nightly-refresh
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+  - apiGroups:
+      - packages.operators.coreos.com
+    resources:
+      - packagemanifests
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rhoai-nightly-refresh
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rhoai-nightly-refresh
+subjects:
+  - kind: ServiceAccount
+    name: rhoai-nightly-refresh
+    namespace: {{ .Values.refresh.subscriptionNamespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rhoai-nightly-refresh
+  namespace: {{ .Values.refresh.subscriptionNamespace }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ .Values.refresh.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rhoai-nightly-refresh
+    spec:
+      serviceAccountName: rhoai-nightly-refresh
+      restartPolicy: Never
+      containers:
+        - name: refresh
+          image: {{ .Values.refresh.image }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -Eeuo pipefail
+
+              package="${PACKAGE}"
+              channel="${CHANNEL}"
+              catalog_namespace="${CATALOG_NAMESPACE}"
+              subscription_namespace="${SUBSCRIPTION_NAMESPACE}"
+              subscription_name="${SUBSCRIPTION_NAME}"
+              catalog_settle_seconds="${CATALOG_SETTLE_SECONDS}"
+              wait_timeout="${WAIT_TIMEOUT_SECONDS}"
+
+              sleep "${catalog_settle_seconds}"
+              channel_records="$(oc get packagemanifest "${package}" -n "${catalog_namespace}" \
+                -o jsonpath='{range .status.channels[*]}{.name}|{.currentCSV}|{.currentCSVDesc.annotations.containerImage}{"\n"}{end}')"
+              channel_record="$(printf '%s\n' "${channel_records}" | grep -F "${channel}|" | head -n 1)"
+              desired_csv="$(printf '%s\n' "${channel_record}" | cut -d'|' -f2)"
+              catalog_image="$(printf '%s\n' "${channel_record}" | cut -d'|' -f3)"
+              if [[ -z "${desired_csv}" || -z "${catalog_image}" ]]; then
+                echo "ERROR: channel ${channel} has no CSV or operator image in PackageManifest ${package}" >&2
+                exit 1
+              fi
+
+              installed_image="$(oc get csv "${desired_csv}" -n "${subscription_namespace}" \
+                -o jsonpath='{.metadata.annotations.containerImage}' 2>/dev/null || true)"
+              echo "Desired CSV: ${desired_csv}"
+              echo "Catalog operator image: ${catalog_image}"
+              echo "Installed operator image: ${installed_image:-<missing>}"
+
+              if [[ "${installed_image}" == "${catalog_image}" ]]; then
+                echo "Installed operator image already matches the catalog; no refresh required"
+                exit 0
+              fi
+
+              old_install_plan="$(oc get subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}" \
+                -o jsonpath='{.status.installPlanRef.name}' 2>/dev/null || true)"
+
+              echo "Refreshing ${subscription_namespace}/${desired_csv} through OLM"
+              oc delete csv "${desired_csv}" -n "${subscription_namespace}" --ignore-not-found=true
+
+              if [[ -n "${old_install_plan}" ]]; then
+                oc delete installplan.operators.coreos.com "${old_install_plan}" -n "${subscription_namespace}" --ignore-not-found=true
+              fi
+
+              oc patch subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}" \
+                --subresource=status --type=merge \
+                -p '{"status":{"state":"None","currentCSV":"","installedCSV":"","installPlanRef":null,"install":null}}'
+
+              deadline=$((SECONDS + wait_timeout))
+              last_log=0
+              while (( SECONDS < deadline )); do
+                state="$(oc get subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}" \
+                  -o jsonpath='{.status.state}' 2>/dev/null || true)"
+                current_csv="$(oc get subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}" \
+                  -o jsonpath='{.status.currentCSV}' 2>/dev/null || true)"
+                current_image="$(oc get csv "${current_csv}" -n "${subscription_namespace}" \
+                  -o jsonpath='{.metadata.annotations.containerImage}' 2>/dev/null || true)"
+
+                if [[ "${state}" == "AtLatestKnown" && "${current_csv}" == "${desired_csv}" && "${current_image}" == "${catalog_image}" ]]; then
+                  echo "OLM refreshed ${desired_csv} to ${catalog_image}"
+                  exit 0
+                fi
+
+                if (( SECONDS - last_log >= 15 )); then
+                  echo "Waiting for OLM refresh: state=${state:-<missing>} currentCSV=${current_csv:-<missing>}"
+                  last_log="${SECONDS}"
+                fi
+                sleep 5
+              done
+
+              echo "ERROR: timed out after ${wait_timeout}s waiting for OLM to refresh ${desired_csv}" >&2
+              exit 1
+          env:
+            - name: PACKAGE
+              value: {{ .Values.refresh.package | quote }}
+            - name: CHANNEL
+              value: {{ .Values.refresh.channel | quote }}
+            - name: CATALOG_NAMESPACE
+              value: {{ .Values.refresh.catalogNamespace | quote }}
+            - name: SUBSCRIPTION_NAMESPACE
+              value: {{ .Values.refresh.subscriptionNamespace | quote }}
+            - name: SUBSCRIPTION_NAME
+              value: {{ .Values.refresh.subscriptionName | quote }}
+            - name: CATALOG_SETTLE_SECONDS
+              value: {{ .Values.refresh.catalogSettleSeconds | quote }}
+            - name: WAIT_TIMEOUT_SECONDS
+              value: {{ .Values.refresh.waitTimeoutSeconds | quote }}
+          resources:
+            {{- toYaml .Values.refresh.resources | nindent 12 }}
+{{- end }}
