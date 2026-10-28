@@ -127,7 +127,7 @@ metadata:
   name: ai-grid-catalog-status
   namespace: ai-grid-policies
   annotations:
-    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-wave: "2"
 placementRef:
   apiGroup: cluster.open-cluster-management.io
   kind: Placement
