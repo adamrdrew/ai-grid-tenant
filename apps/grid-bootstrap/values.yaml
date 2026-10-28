@@ -1,11 +1,26 @@
 mode: external
+fullnameOverride: grid-bootstrap
+grid:
+  membership:
+    source: Local
+managedClusters:
+  enabled: true
+  networkName: grid
+  clusterSet: global
+  clusterLabel: ai-grid/enabled
+  clusterLabelValue: 'true'
+  # The rhoai hub manifests own the shared binding.
+  createClusterSetBinding: false
+  hubClusterName: local-cluster
 external:
+  delivery:
+    namespace: redhat-ai-grid
   certManager:
     enabled: true
     issuer:
       create: true
       name: grid-ca
     ca:
-      # The existing service owns this CA; this phase only references it.
+      # Preserve the existing CA while external issuance takes over identities.
       mode: Existing
       secretName: grid-ca-key

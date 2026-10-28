@@ -1,35 +1,54 @@
 # Grid bootstrap
 
-Bootstrap is the first lifecycle phase of the existing `grid-enrollment` chart.
-This hub Application follows `odh-gitops:feature-ai-grid` and selects its external
-identity mode, with the optional cert-manager integration enabled.
+This hub Application deploys the existing `grid-enrollment` chart from
+`odh-gitops:feature-ai-grid` in external mode. `managedClusters.enabled` selects
+inventory-based enrollment through the common ACM/OCM APIs. The chart itself
+has no Argo-specific switch.
 
-It creates only the namespaced Issuer `redhat-ai-grid/grid-ca`, referencing the
-existing `grid-ca-key` Secret. The current enrollment service remains running
-in its original Application, and existing site identities keep their trust.
-No site Certificates or ACM delivery policies are enabled by these values.
+The existing `redhat-ai-grid/grid-ca` Issuer continues to use `grid-ca-key`.
+Bootstrap never regenerates the CA. Selected clusters have the `ai-grid/enabled`
+label and use their ManagedCluster name as the site identity. The hub is enrolled
+through the same flow as other members.
 
-The Application name, Helm release name, destination, and Issuer name are kept
-unchanged during migration from the temporary standalone bootstrap chart. Argo
-updates the same Issuer in place; it does not transfer it to another Application.
-Merge the ODH enrollment mode change first. Remove the obsolete standalone chart
-only after this source change is Synced and Healthy.
+The chart requests a Certificate per selected member, delivers the identity and
+public CA bundle, and installs a read-only GridSite observer per cluster. It
+watches public endpoint metadata and distributes remote GridSites to peers,
+with a site-only operator ConfigMap on each member. Model discovery uses the
+Local operator's HTTPS provider catalog. The CA signing key remains on the hub.
 
-## Verify
+This is the identity-preparation phase. The existing enrollment service stays
+running and operator runtime membership is not changed by these values. Merge
+the ODH chart update first. After identities and policies reconcile, use the
+separate runtime cutover to select Local membership on every site, publish local
+endpoints, and remove the service and SWIM delivery.
 
-Use the explicit hub context:
+## Verify before runtime cutover
+
+Use an explicit hub context and inspect metadata, not Secret data:
 
 ```sh
 kubectl --context "$HUB_CONTEXT" -n openshift-gitops get applications.argoproj.io grid-bootstrap
 kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get issuers.cert-manager.io grid-ca
-kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid wait issuer/grid-ca \
-  --for=condition=Ready --timeout=120s
+kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get certificates.cert-manager.io
+kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get policies.policy.open-cluster-management.io
+kubectl --context "$HUB_CONTEXT" get manifestworks.work.open-cluster-management.io -A
+kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get secret grid-ca-key \
+  -o jsonpath='{.metadata.uid}{"\n"}'
 ```
 
-The issuer must still reference `grid-ca-key`, and its UID should be unchanged.
-An unready Issuer indicates an unavailable controller or an unsuitable CA Secret;
-restore the existing CA rather than selecting Generate mode.
+The CA UID must be unchanged, both site Certificates Ready, and identity policies
+Compliant. Check each cluster's `grid-site-identity` has the corresponding
+`cert-manager.io/certificate-name` annotation and that its GridNetwork accepts the
+identity. During preparation an observer can report missing endpoints; the runtime
+cutover declares each member's source GridSite and signals Route.
 
-Enrollment will add site metadata and identity delivery. Decommission must
-withdraw membership and stop renewal before cleanup and ACM detachment. These
-later stages are not activated by this bootstrap migration.
+Read-only observers must never overwrite source GridSites. After cutover, change
+one source endpoint through Git and verify it appears on the other member without
+copying status or changing the source. Restore the endpoint through Git. Removal
+of a selection label withdraws peer records and stops certificate renewal; verify
+withdrawal before removing identities or detaching a cluster. The CA is retained.
+
+If preparation fails, fix or revert these policies through Git while retaining
+the CA and identities. Removing a Certificate stops renewal but does not revoke
+an issued certificate or guarantee deletion of its Secret. Do not switch the CA
+to Generate as a recovery action.
