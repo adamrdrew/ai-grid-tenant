@@ -44,51 +44,18 @@ rules:
     verbs:
       - get
       - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: rhoai-nightly-refresh
-  namespace: {{ .Values.refresh.subscriptionNamespace }}
-  annotations:
-    argocd.argoproj.io/sync-wave: "-1"
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: rhoai-nightly-refresh
-subjects:
-  - kind: ServiceAccount
-    name: rhoai-nightly-refresh
-    namespace: {{ .Values.refresh.subscriptionNamespace }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: rhoai-nightly-refresh
-  namespace: {{ .Values.refresh.modelControllerNamespace }}
-  annotations:
-    argocd.argoproj.io/sync-wave: "-1"
-rules:
   - apiGroups:
       - apps
     resources:
       - deployments
     verbs:
       - get
-      - delete
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - get
-      - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: rhoai-nightly-refresh
-  namespace: {{ .Values.refresh.modelControllerNamespace }}
+  namespace: {{ .Values.refresh.subscriptionNamespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 roleRef:
@@ -164,10 +131,7 @@ spec:
               subscription_name="${SUBSCRIPTION_NAME}"
               catalog_settle_seconds="${CATALOG_SETTLE_SECONDS}"
               wait_timeout="${WAIT_TIMEOUT_SECONDS}"
-              model_controller_namespace="${MODEL_CONTROLLER_NAMESPACE}"
-              model_controller_name="${MODEL_CONTROLLER_NAME}"
-              model_controller_parameters_configmap="${MODEL_CONTROLLER_PARAMETERS_CONFIGMAP}"
-              model_controller_wait_timeout="${MODEL_CONTROLLER_WAIT_TIMEOUT_SECONDS}"
+              operator_rollout_timeout="${OPERATOR_ROLLOUT_TIMEOUT_SECONDS}"
 
               sleep "${catalog_settle_seconds}"
               # A package name can occur in multiple catalogs. Select the source
@@ -246,54 +210,48 @@ spec:
                 exit 1
               fi
 
-              desired_model_controller_image="$(oc get csv "${desired_csv}" -n "${subscription_namespace}" \
-                -o jsonpath='{.spec.relatedImages[?(@.name=="odh_model_controller_image")].image}')"
-              if [[ -z "${desired_model_controller_image}" ]]; then
-                echo "ERROR: CSV ${desired_csv} has no odh_model_controller_image related image" >&2
+              operator_deployments="$(oc get csv "${desired_csv}" -n "${subscription_namespace}" \
+                -o jsonpath='{range .spec.install.spec.deployments[*]}{.name}{"\n"}{end}')"
+              if [[ -z "${operator_deployments}" ]]; then
+                echo "ERROR: CSV ${desired_csv} declares no operator Deployments" >&2
                 exit 1
               fi
 
-              current_model_controller_image="$(oc get deployment "${model_controller_name}" -n "${model_controller_namespace}" \
-                -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
-              current_model_controller_parameters_image="$(oc get configmap "${model_controller_parameters_configmap}" -n "${model_controller_namespace}" \
-                -o jsonpath='{.data.odh-model-controller}' 2>/dev/null || true)"
-              echo "Desired model-controller image: ${desired_model_controller_image}"
-              echo "Current model-controller image: ${current_model_controller_image:-<missing>}"
-              echo "Current parameters image: ${current_model_controller_parameters_image:-<missing>}"
-
-              if [[ "${current_model_controller_image}" != "${desired_model_controller_image}" || "${current_model_controller_parameters_image}" != "${desired_model_controller_image}" ]]; then
-                echo "Patching ${model_controller_namespace}/${model_controller_parameters_configmap} and refreshing ${model_controller_name} Deployment"
-                oc patch configmap "${model_controller_parameters_configmap}" -n "${model_controller_namespace}" \
-                  --type=merge -p "{\"data\":{\"odh-model-controller\":\"${desired_model_controller_image}\"}}"
-                oc delete deployment "${model_controller_name}" -n "${model_controller_namespace}" --ignore-not-found=true
-
-                model_controller_deadline=$((SECONDS + model_controller_wait_timeout))
-                model_controller_last_log=0
-                while (( SECONDS < model_controller_deadline )); do
-                  current_model_controller_image="$(oc get deployment "${model_controller_name}" -n "${model_controller_namespace}" \
-                    -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
-                  current_model_controller_parameters_image="$(oc get configmap "${model_controller_parameters_configmap}" -n "${model_controller_namespace}" \
-                    -o jsonpath='{.data.odh-model-controller}' 2>/dev/null || true)"
-                  model_controller_available="$(oc get deployment "${model_controller_name}" -n "${model_controller_namespace}" \
+              operator_rollout_deadline=$((SECONDS + operator_rollout_timeout))
+              operator_rollout_last_log=0
+              operator_rollout_complete=false
+              while (( SECONDS < operator_rollout_deadline )); do
+                operator_rollout_complete=true
+                while IFS= read -r operator_deployment; do
+                  [[ -n "${operator_deployment}" ]] || continue
+                  generation="$(oc get deployment "${operator_deployment}" -n "${subscription_namespace}" \
+                    -o jsonpath='{.metadata.generation}' 2>/dev/null || true)"
+                  observed_generation="$(oc get deployment "${operator_deployment}" -n "${subscription_namespace}" \
+                    -o jsonpath='{.status.observedGeneration}' 2>/dev/null || true)"
+                  available="$(oc get deployment "${operator_deployment}" -n "${subscription_namespace}" \
                     -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null || true)"
 
-                  if [[ "${current_model_controller_image}" == "${desired_model_controller_image}" && "${current_model_controller_parameters_image}" == "${desired_model_controller_image}" && "${model_controller_available}" == "True" ]]; then
-                    echo "Model controller refreshed to ${desired_model_controller_image}"
-                    exit 0
+                  if [[ "${generation}" != "${observed_generation}" || "${available}" != "True" ]]; then
+                    operator_rollout_complete=false
                   fi
+                done <<< "${operator_deployments}"
 
-                  if (( SECONDS - model_controller_last_log >= 15 )); then
-                    echo "Waiting for model-controller refresh: image=${current_model_controller_image:-<missing>} parameters=${current_model_controller_parameters_image:-<missing>} available=${model_controller_available:-<missing>}"
-                    model_controller_last_log="${SECONDS}"
-                  fi
-                  sleep 5
-                done
+                if [[ "${operator_rollout_complete}" == true ]]; then
+                  echo "Operator Deployments from ${desired_csv} are available"
+                  break
+                fi
 
-                echo "ERROR: timed out after ${model_controller_wait_timeout}s waiting for model-controller refresh" >&2
+                if (( SECONDS - operator_rollout_last_log >= 15 )); then
+                  echo "Waiting for operator Deployments from ${desired_csv} to roll out"
+                  operator_rollout_last_log="${SECONDS}"
+                fi
+                sleep 5
+              done
+
+              if [[ "${operator_rollout_complete}" != true ]]; then
+                echo "ERROR: timed out after ${operator_rollout_timeout}s waiting for operator Deployments from ${desired_csv}" >&2
                 exit 1
               fi
-
-              echo "Model-controller image already matches the CSV; no refresh required"
           env:
             - name: PACKAGE
               value: {{ .Values.refresh.package | quote }}
@@ -309,14 +267,8 @@ spec:
               value: {{ .Values.refresh.catalogSettleSeconds | quote }}
             - name: WAIT_TIMEOUT_SECONDS
               value: {{ .Values.refresh.waitTimeoutSeconds | quote }}
-            - name: MODEL_CONTROLLER_NAMESPACE
-              value: {{ .Values.refresh.modelControllerNamespace | quote }}
-            - name: MODEL_CONTROLLER_NAME
-              value: {{ .Values.refresh.modelControllerName | quote }}
-            - name: MODEL_CONTROLLER_PARAMETERS_CONFIGMAP
-              value: {{ .Values.refresh.modelControllerParametersConfigMap | quote }}
-            - name: MODEL_CONTROLLER_WAIT_TIMEOUT_SECONDS
-              value: {{ .Values.refresh.modelControllerWaitTimeoutSeconds | quote }}
+            - name: OPERATOR_ROLLOUT_TIMEOUT_SECONDS
+              value: {{ .Values.refresh.operatorRolloutTimeoutSeconds | quote }}
           resources:
             {{- toYaml .Values.refresh.resources | nindent 12 }}
 {{- end }}
