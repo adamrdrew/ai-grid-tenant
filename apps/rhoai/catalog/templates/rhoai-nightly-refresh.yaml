@@ -82,7 +82,7 @@ rules:
       - configmaps
     verbs:
       - get
-      - delete
+      - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -249,8 +249,9 @@ spec:
               echo "Current parameters image: ${current_model_controller_parameters_image:-<missing>}"
 
               if [[ "${current_model_controller_image}" != "${desired_model_controller_image}" || "${current_model_controller_parameters_image}" != "${desired_model_controller_image}" ]]; then
-                echo "Refreshing ${model_controller_namespace}/${model_controller_parameters_configmap} ConfigMap and ${model_controller_name} Deployment"
-                oc delete configmap "${model_controller_parameters_configmap}" -n "${model_controller_namespace}" --ignore-not-found=true
+                echo "Patching ${model_controller_namespace}/${model_controller_parameters_configmap} and refreshing ${model_controller_name} Deployment"
+                oc patch configmap "${model_controller_parameters_configmap}" -n "${model_controller_namespace}" \
+                  --type=merge -p "{\"data\":{\"odh-model-controller\":\"${desired_model_controller_image}\"}}"
                 oc delete deployment "${model_controller_name}" -n "${model_controller_namespace}" --ignore-not-found=true
 
                 model_controller_deadline=$((SECONDS + model_controller_wait_timeout))
