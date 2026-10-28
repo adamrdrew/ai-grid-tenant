@@ -98,6 +98,182 @@ spec:
         hs.status = "Progressing"
         hs.message = "Operator subscription state: " .. obj.status.state
         return hs
+    - group: datasciencecluster.opendatahub.io
+      kind: DataScienceCluster
+      check: |
+        hs = {}
+        if obj.status == nil or obj.status.conditions == nil then
+          hs.status = "Progressing"
+          hs.message = "Waiting for DataScienceCluster status"
+          return hs
+        end
+        if obj.metadata.generation ~= nil and obj.status.observedGeneration ~= nil and obj.status.observedGeneration < obj.metadata.generation then
+          hs.status = "Progressing"
+          hs.message = "Waiting for the current DataScienceCluster generation"
+          return hs
+        end
+        if obj.status.errorMessage ~= nil then
+          hs.status = "Degraded"
+          hs.message = obj.status.errorMessage
+          return hs
+        end
+        if obj.status.phase == "Error" then
+          hs.status = "Degraded"
+          hs.message = "DataScienceCluster reconciliation failed"
+          return hs
+        end
+        if obj.status.phase == "Progressing" or obj.status.phase == "Not Ready" then
+          hs.status = "Progressing"
+          hs.message = "DataScienceCluster phase: " .. obj.status.phase
+          return hs
+        end
+        for _, condition in ipairs(obj.status.conditions) do
+          if condition.type == "Ready" then
+            if condition.status == "True" then
+              hs.status = "Healthy"
+              hs.message = condition.message or "DataScienceCluster is ready"
+              return hs
+            elseif condition.status == "False" then
+              hs.status = "Degraded"
+              hs.message = condition.message or "DataScienceCluster is not ready"
+              return hs
+            end
+          end
+        end
+        hs.status = "Progressing"
+        hs.message = "Waiting for the DataScienceCluster Ready condition"
+        return hs
+    - group: grid.praxis.fast
+      kind: GridNetwork
+      check: |
+        hs = {}
+        if obj.status == nil or obj.status.phase == nil then
+          hs.status = "Progressing"
+          hs.message = "Waiting for GridNetwork status"
+          return hs
+        end
+        if obj.metadata.generation ~= nil and obj.status.observedGeneration ~= nil and obj.status.observedGeneration < obj.metadata.generation then
+          hs.status = "Progressing"
+          hs.message = "Waiting for the current GridNetwork generation"
+          return hs
+        end
+        if obj.status.phase == "Degraded" then
+          hs.status = "Degraded"
+          hs.message = "GridNetwork is degraded"
+          return hs
+        end
+        if obj.status.phase ~= "Active" then
+          hs.status = "Progressing"
+          hs.message = "GridNetwork phase: " .. obj.status.phase
+          return hs
+        end
+        local available = nil
+        local progressing = false
+        local degraded = false
+        local message = "GridNetwork is active"
+        for _, condition in ipairs(obj.status.conditions or {}) do
+          if condition.type == "Degraded" and condition.status == "True" then
+            degraded = true
+            message = condition.message or "GridNetwork is degraded"
+          elseif condition.type == "Progressing" and condition.status == "True" then
+            progressing = true
+            message = condition.message or "GridNetwork is progressing"
+          elseif condition.type == "Available" then
+            available = condition.status == "True"
+            message = condition.message or message
+          end
+        end
+        if degraded then
+          hs.status = "Degraded"
+          hs.message = message
+          return hs
+        end
+        if progressing then
+          hs.status = "Progressing"
+          hs.message = message
+          return hs
+        end
+        if available == false then
+          hs.status = "Degraded"
+          hs.message = message
+          return hs
+        end
+        hs.status = "Healthy"
+        hs.message = message
+        return hs
+    # GridSite is intentionally disabled: site discovery and enrollment can
+    # remain Pending or Discovered independently of GitOps reconciliation.
+    # - group: grid.praxis.fast
+    #   kind: GridSite
+    #   check: |
+    #     hs = {}
+    #     if obj.status == nil or obj.status.phase == nil then
+    #       hs.status = "Progressing"
+    #       hs.message = "Waiting for GridSite status"
+    #       return hs
+    #     end
+    #     if obj.metadata.generation ~= nil and obj.status.observedGeneration ~= nil and obj.status.observedGeneration < obj.metadata.generation then
+    #       hs.status = "Progressing"
+    #       hs.message = "Waiting for the current GridSite generation"
+    #       return hs
+    #     end
+    #     if obj.status.phase == "Unreachable" then
+    #       hs.status = "Degraded"
+    #       hs.message = obj.status.message or "GridSite is unreachable"
+    #       return hs
+    #     end
+    #     if obj.status.phase == "Active" or obj.status.phase == "Left" then
+    #       hs.status = "Healthy"
+    #       hs.message = obj.status.message or "GridSite phase: " .. obj.status.phase
+    #       return hs
+    #     end
+    #     hs.status = "Progressing"
+    #     hs.message = obj.status.message or "GridSite phase: " .. obj.status.phase
+    #     return hs
+    - group: grid.praxis.fast
+      kind: InferenceProvider
+      check: |
+        hs = {}
+        if obj.status == nil or obj.status.phase == nil then
+          hs.status = "Progressing"
+          hs.message = "Waiting for InferenceProvider status"
+          return hs
+        end
+        if obj.metadata.generation ~= nil and obj.status.observedGeneration ~= nil and obj.status.observedGeneration < obj.metadata.generation then
+          hs.status = "Progressing"
+          hs.message = "Waiting for the current InferenceProvider generation"
+          return hs
+        end
+        if obj.status.phase == "Degraded" or obj.status.phase == "Unavailable" then
+          hs.status = "Degraded"
+          hs.message = obj.status.reason or obj.status.message or "InferenceProvider phase: " .. obj.status.phase
+          return hs
+        end
+        if obj.status.phase == "Pending" then
+          hs.status = "Progressing"
+          hs.message = obj.status.reason or obj.status.message or "InferenceProvider is pending"
+          return hs
+        end
+        for _, condition in ipairs(obj.status.conditions or {}) do
+          if condition.type == "Ready" and condition.status == "False" then
+            hs.status = "Degraded"
+            hs.message = condition.message or "InferenceProvider is not ready"
+            return hs
+          end
+          if condition.type == "Degraded" and condition.status == "True" then
+            hs.status = "Degraded"
+            hs.message = condition.message or "InferenceProvider is degraded"
+            return hs
+          end
+        end
+        if obj.status.phase == "Available" then
+          hs.status = "Healthy"
+          hs.message = obj.status.reason or obj.status.message or "InferenceProvider is available"
+          return hs
+        end
+        hs.status = "Progressing"
+        hs.message = obj.status.reason or obj.status.message or "InferenceProvider phase: " .. obj.status.phase
+        return hs
     - group: operator.openshift.io
       kind: ExternalSecretsConfig
       check: |
@@ -428,6 +604,124 @@ spec:
         end
         hs.status = "Progressing"
         hs.message = "Waiting for the MaaSModelRef Ready condition"
+        return hs
+    - group: maas.opendatahub.io
+      kind: MaaSSubscription
+      check: |
+        hs = {}
+        if obj.status == nil or obj.status.conditions == nil then
+          hs.status = "Progressing"
+          hs.message = "Waiting for MaaSSubscription status"
+          return hs
+        end
+        local failedPhases = {
+          Degraded = true,
+          Failed = true,
+          Invalid = true
+        }
+        if failedPhases[obj.status.phase] then
+          hs.status = "Degraded"
+          hs.message = "MaaSSubscription phase: " .. obj.status.phase
+          return hs
+        end
+        if obj.status.phase == "Pending" then
+          hs.status = "Progressing"
+          hs.message = "MaaSSubscription is pending"
+          return hs
+        end
+        for _, status in ipairs(obj.status.modelRefStatuses or {}) do
+          if status.ready == false then
+            hs.status = "Degraded"
+            hs.message = status.message or "MaaS model reference is not ready"
+            return hs
+          end
+        end
+        for _, status in ipairs(obj.status.flowControlStatuses or {}) do
+          if status.ready == false then
+            hs.status = "Degraded"
+            hs.message = status.message or "MaaS model flow control is not ready"
+            return hs
+          end
+        end
+        for _, status in ipairs(obj.status.tokenRateLimitStatuses or {}) do
+          if status.ready == false then
+            hs.status = "Degraded"
+            hs.message = status.message or "MaaS token rate limit is not ready"
+            return hs
+          end
+        end
+        for _, condition in ipairs(obj.status.conditions) do
+          if condition.type == "Ready" then
+            if obj.metadata.generation ~= nil and condition.observedGeneration ~= nil and condition.observedGeneration < obj.metadata.generation then
+              hs.status = "Progressing"
+              hs.message = "Waiting for the current MaaSSubscription generation"
+              return hs
+            end
+            if condition.status == "True" then
+              hs.status = "Healthy"
+              hs.message = condition.message or "MaaSSubscription is ready"
+              return hs
+            elseif condition.status == "False" then
+              hs.status = "Degraded"
+              hs.message = condition.message or "MaaSSubscription is not ready"
+              return hs
+            end
+          end
+        end
+        hs.status = "Progressing"
+        hs.message = "Waiting for the MaaSSubscription Ready condition"
+        return hs
+    - group: maas.opendatahub.io
+      kind: MaaSAuthPolicy
+      check: |
+        hs = {}
+        if obj.status == nil or obj.status.conditions == nil then
+          hs.status = "Progressing"
+          hs.message = "Waiting for MaaSAuthPolicy status"
+          return hs
+        end
+        local failedPhases = {
+          Degraded = true,
+          Failed = true,
+          Invalid = true
+        }
+        if failedPhases[obj.status.phase] then
+          hs.status = "Degraded"
+          hs.message = "MaaSAuthPolicy phase: " .. obj.status.phase
+          return hs
+        end
+        if obj.status.phase == "Pending" then
+          hs.status = "Progressing"
+          hs.message = "MaaSAuthPolicy is pending"
+          return hs
+        end
+        for _, status in ipairs(obj.status.authPolicies or {}) do
+          if status.ready == false then
+            hs.status = "Degraded"
+            hs.message = status.message or "Generated Kuadrant AuthPolicy is not ready"
+            return hs
+          end
+        end
+        for _, condition in ipairs(obj.status.conditions) do
+          if condition.type == "Ready" then
+            if obj.metadata.generation ~= nil and condition.observedGeneration ~= nil and condition.observedGeneration < obj.metadata.generation then
+              hs.status = "Progressing"
+              hs.message = "Waiting for the current MaaSAuthPolicy generation"
+              return hs
+            end
+            if condition.status == "True" then
+              hs.status = "Healthy"
+              hs.message = condition.message or "MaaSAuthPolicy is ready"
+              return hs
+            elseif condition.status == "False" then
+              hs.status = "Degraded"
+              hs.message = condition.message or "MaaSAuthPolicy is not ready"
+              return hs
+            end
+          end
+        end
+        hs.status = "Progressing"
+        hs.message = "Waiting for the MaaSAuthPolicy Ready condition"
         return hs
     - group: inference.opendatahub.io
       kind: ExternalProvider
