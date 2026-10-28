@@ -1,0 +1,47 @@
+# The catalog repository is written by the provider console's git writer
+# (ai-grid-cloud/ai-grid-provider-backend), with a token that can push to it.
+# So its Applications may deliver nothing else: only that repository as a
+# source, no cluster-scoped kinds, and only the kinds the writer commits, each
+# in its own namespace. Argo CD checks a resource's kind and namespace against
+# a project separately, so models and MaaS objects get a project each: a model
+# (whose spec is a pod template) can't land in models-as-a-service next to
+# MaaS's Secrets, and a NetworkPolicy can't open MaaS's pods.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: acm-models-catalog-models
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  description: Models from the catalog repository, written by the provider console
+  sourceRepos:
+    - https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
+  destinations:
+    - server: "*"
+      namespace: ai-grid-internal-models
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - { group: serving.kserve.io, kind: LLMInferenceService }
+    - { group: networking.k8s.io, kind: NetworkPolicy }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: acm-models-catalog-maas
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  description: Models' MaaS entries and subscriptions from the catalog repository, written by the provider console
+  sourceRepos:
+    - https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
+  destinations:
+    - server: "*"
+      namespace: models-as-a-service
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - { group: maas.opendatahub.io, kind: MaaSSubscription }
+    - { group: maas.opendatahub.io, kind: MaaSAuthPolicy }
+    - { group: maas.opendatahub.io, kind: MaaSModelRef }
+    - { group: inference.opendatahub.io, kind: ExternalModel }

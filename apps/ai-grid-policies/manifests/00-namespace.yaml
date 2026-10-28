@@ -1,0 +1,37 @@
+# The namespace for the AI Grid Policies the provider console reads, with the
+# ClusterSet binding and Placement they use.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-grid-policies
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+---
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSetBinding
+metadata:
+  name: global
+  namespace: ai-grid-policies
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  clusterSet: global
+---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  # Every cluster in ClusterSet global. Tolerations keep a cluster that briefly
+  # loses contact with the hub, so its Policy copies aren't removed and
+  # recreated.
+  name: ai-grid-policies
+  namespace: ai-grid-policies
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  clusterSets:
+    - global
+  tolerations:
+    - key: cluster.open-cluster-management.io/unreachable
+      operator: Exists
+    - key: cluster.open-cluster-management.io/unavailable
+      operator: Exists

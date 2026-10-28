@@ -1,0 +1,203 @@
+# The provider console's catalog: the models and subscriptions it commits to
+# ai-grid-cloud/ai-grid-1-catalog, on the clusters Placement acm-models-catalog
+# selects. That repository URL is the one value a deployment changes.
+#
+# Models: catalog/clusters/<cluster>/ lists the models placed on that cluster
+# (catalog/models/<id>/deployment: the LLMInferenceService and its NetworkPolicy).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: acm-models-catalog-models
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  # Deleting the ApplicationSet, or a cluster's folder, leaves models
+  # running. The console removes a model by editing the cluster's list, which
+  # it keeps (empty) after the last model.
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  generators:
+    # The Placement's clusters, each joined with the catalog folder it reads:
+    # no Application until the console has written that folder, so an empty
+    # catalog shows no errors.
+    - matrix:
+        generators:
+          - clusterDecisionResource:
+              configMapRef: acm-placement
+              labelSelector:
+                matchLabels:
+                  cluster.open-cluster-management.io/placement: acm-models-catalog
+          - git:
+              repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
+              revision: main
+              directories:
+                - path: 'catalog/clusters/{{.name}}'
+  template:
+    metadata:
+      name: 'acm-models-catalog-models-{{.name}}'
+      namespace: openshift-gitops
+    spec:
+      project: acm-models-catalog-models
+      source:
+        repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
+        targetRevision: main
+        path: '{{.path.path}}'
+        kustomize: {}
+      destination:
+        server: '{{.server}}'
+        namespace: ai-grid-internal-models
+      syncPolicy:
+        # allowEmpty: Argo CD otherwise refuses to prune to nothing.
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: true
+        retry:
+          refresh: true
+          limit: 10
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 10m
+        syncOptions:
+          - SkipDryRunOnMissingResource=true
+          # Never adopt an object another Application manages, such as a
+          # sample model. A colliding file stops that cluster's catalog sync
+          # until it's fixed.
+          - FailOnSharedResource=true
+---
+# Each selected cluster registers every catalog model in MaaS:
+# catalog/ingress/ lists catalog/models/<id>/catalog (ExternalModel, MaaSModelRef).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: acm-models-catalog-ingress
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    # The Placement's clusters, each joined with the catalog folder it reads:
+    # no Application until the console has written that folder, so an empty
+    # catalog shows no errors.
+    - matrix:
+        generators:
+          - clusterDecisionResource:
+              configMapRef: acm-placement
+              labelSelector:
+                matchLabels:
+                  cluster.open-cluster-management.io/placement: acm-models-catalog
+          - git:
+              repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
+              revision: main
+              directories:
+                - path: 'catalog/ingress'
+  template:
+    metadata:
+      name: 'acm-models-catalog-ingress-{{.name}}'
+      namespace: openshift-gitops
+      # Fail closed: deleting the Application (or the ApplicationSet) deletes
+      # what it delivered, so no subscription or auth policy outlives it.
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: acm-models-catalog-maas
+      source:
+        repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
+        targetRevision: main
+        path: '{{.path.path}}'
+        kustomize: {}
+      destination:
+        server: '{{.server}}'
+        namespace: models-as-a-service
+      syncPolicy:
+        # allowEmpty: Argo CD otherwise refuses to prune to nothing.
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: true
+        retry:
+          refresh: true
+          limit: 10
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 10m
+        syncOptions:
+          - SkipDryRunOnMissingResource=true
+          # Never adopt an object another Application manages, such as a
+          # sample model. A colliding file stops that cluster's catalog sync
+          # until it's fixed.
+          - FailOnSharedResource=true
+---
+# Each selected cluster gets every subscription: catalog/subscriptions/<id>.yaml,
+# a MaaSSubscription and its <id>-policy MaaSAuthPolicy.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: acm-models-catalog-subscriptions
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    # The Placement's clusters, each joined with the catalog folder it reads:
+    # no Application until the console has written that folder, so an empty
+    # catalog shows no errors.
+    - matrix:
+        generators:
+          - clusterDecisionResource:
+              configMapRef: acm-placement
+              labelSelector:
+                matchLabels:
+                  cluster.open-cluster-management.io/placement: acm-models-catalog
+          - git:
+              repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
+              revision: main
+              directories:
+                - path: 'catalog/subscriptions'
+  template:
+    metadata:
+      name: 'acm-models-catalog-subscriptions-{{.name}}'
+      namespace: openshift-gitops
+      # Fail closed: deleting the Application (or the ApplicationSet) deletes
+      # what it delivered, so no subscription or auth policy outlives it.
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: acm-models-catalog-maas
+      source:
+        repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
+        targetRevision: main
+        path: '{{.path.path}}'
+        directory:
+          include: "*.yaml"
+      destination:
+        server: '{{.server}}'
+        namespace: models-as-a-service
+      syncPolicy:
+        # allowEmpty: Argo CD otherwise refuses to prune to nothing.
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: true
+        retry:
+          refresh: true
+          limit: 10
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 10m
+        syncOptions:
+          - SkipDryRunOnMissingResource=true
+          # Never adopt an object another Application manages, such as a
+          # sample model. A colliding file stops that cluster's catalog sync
+          # until it's fixed.
+          - FailOnSharedResource=true
