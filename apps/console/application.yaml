@@ -1,0 +1,70 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # The cloud provider's admin console on the hub, from its own Helm chart:
+  # one pod with kube-auth-proxy (OpenShift sign-in), the console and its
+  # backend. It saves models and subscriptions as commits to the catalog
+  # repository that apps/acm-models delivers. Before the first sync, run
+  # create-secrets.sh (README.md).
+  name: console
+  namespace: openshift-gitops
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/ai-grid-cloud/ai-grid-provider-console.git
+      # A commit, not a branch: the chart holds ClusterRoleBindings and a
+      # ValidatingAdmissionPolicy that Argo CD applies with cluster-admin
+      # rights, so what runs here changes only by a reviewed commit. Bump it
+      # with the images.
+      targetRevision: c1983fc8eaaa56cda83988d9cda63b1e47975d7c
+      path: charts/ai-grid-provider-console
+      helm:
+        releaseName: ai-grid-provider-console
+        valuesObject:
+          # By digest: tags can be overwritten. Console and chart are main
+          # c1983fc, backend main ca83c8d.
+          images:
+            console:
+              tag: sha-c1983fc8eaaa56cda83988d9cda63b1e47975d7c
+              digest: sha256:a15f4b2a91f9dce2d1840946e5d29c2d8b52303803577355e4f42ab4df5b03af
+            backend:
+              tag: sha-ca83c8d3a79173ca38b8258d19fec212675d440d
+              digest: sha256:eda91d4908e903ad9310709a55a54ec985fe2933063bcc375bb7c2edd3f9b89f
+            authProxy:
+              tag: ""
+              digest: sha256:1a5f6e220362aa2077026bb7e3091c38f80aac861fa060b08045e58e783d5bc5
+          backend:
+            # Add to AI Grid and Remove patch ManagedCluster labels. The chart's
+            # ValidatingAdmissionPolicy limits the backend to the ai-grid/* and
+            # location labels and the ai-grid/* annotations.
+            clusterWrites: true
+            # The catalog repository. The token that pushes to it is Secret
+            # ai-grid-backend-git, never in git; keep it scoped to this
+            # repository alone.
+            git:
+              url: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
+              branch: main
+              # Where the backend writes models. The catalog's delivery, its
+              # AppProject and its status Policy all assume this namespace,
+              # which rhoai-prerequisites' Policy creates.
+              modelsNamespace: ai-grid-internal-models
+    # What the chart doesn't hold: ACM Search access for the backend.
+    - repoURL: https://github.com/kahowell/ai-grid-tenant.git
+      targetRevision: HEAD
+      path: apps/console/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ai-grid-provider-console
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      refresh: true
+      limit: 20
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 30m
+    syncOptions:
+      - CreateNamespace=true

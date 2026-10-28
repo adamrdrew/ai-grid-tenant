@@ -1,0 +1,20 @@
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  # The clusters that receive the provider console's catalog. Narrow it with
+  # predicates, as the sample models' Placements do.
+  name: acm-models-catalog
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  clusterSets:
+    - global
+  # Keep a cluster selected while it briefly loses contact with the hub.
+  # Otherwise its decision goes, the ApplicationSet deletes its catalog
+  # Applications, and their resources finalizer deletes its MaaS objects.
+  tolerations:
+    - key: cluster.open-cluster-management.io/unreachable
+      operator: Exists
+    - key: cluster.open-cluster-management.io/unavailable
+      operator: Exists

@@ -1,0 +1,29 @@
+# The console's backend reads each cluster's GPUs from ACM Search (search-v2),
+# the hub's index of every managed cluster's resources
+# (ai-grid-cloud/ai-grid-provider-backend#33). Search answers a caller only
+# what its RBAC on each cluster allows, and the backend's ServiceAccount has
+# none on the spokes, so without this Search answers it nothing and clusters
+# show no GPU details.
+#
+# global-search-user is ACM's own ClusterRole for this: get on
+# searches/allManagedData, which Search reads as "may see every managed
+# cluster's indexed resources". That's broader than the GPU nodes the backend
+# asks for: it includes the names and labels of every spoke's Secrets and
+# ConfigMaps (not their contents) and its pods' images. The backend
+# authenticates no one, so this is safe only while it's reachable through
+# kube-auth-proxy and the console's provider-admin check alone, as the chart
+# deploys it (loopback listeners, one Service port). The planned end state
+# grants this to the provider admins instead, once the backend calls the hub
+# with the caller's own token. From ai-grid-cloud/ai-grid-env-setup PR 20.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ai-grid-provider-console-search
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: global-search-user
+subjects:
+  - kind: ServiceAccount
+    name: ai-grid-provider-console
+    namespace: ai-grid-provider-console

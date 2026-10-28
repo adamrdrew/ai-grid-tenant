@@ -1,0 +1,68 @@
+# Inform only: a cluster is provisioned once its DataScienceCluster reports
+# KServe and the grid ready and the grid operator runs. The provider console's
+# backend reads this root Policy's per-cluster compliance (its default
+# AI_GRID_READY_POLICY, ai-grid-policies/ai-grid-ready) as each cluster's
+# provisioning state.
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: ai-grid-ready
+  namespace: ai-grid-policies
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  remediationAction: inform
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: ai-grid-ready
+        spec:
+          severity: low
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: datasciencecluster.opendatahub.io/v3
+                kind: DataScienceCluster
+                metadata:
+                  name: default-dsc
+                # What serving needs, not the DSC's overall phase: on an
+                # inference-only cluster (MaaS Removed, the AI Gateway module
+                # running only the grid) the operator reports AIGatewayReady=False
+                # "0/0 deployments ready", so the DSC never reaches Ready although
+                # KServe and the grid are up.
+                status:
+                  conditions:
+                    - type: KserveReady
+                      status: "True"
+                    - type: AIGridReady
+                      status: "True"
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: grid-operator
+                  namespace: redhat-ai-grid
+                status:
+                  conditions:
+                    - type: Available
+                      status: "True"
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: ai-grid-ready
+  namespace: ai-grid-policies
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+placementRef:
+  apiGroup: cluster.open-cluster-management.io
+  kind: Placement
+  name: ai-grid-policies
+subjects:
+  - apiGroup: policy.open-cluster-management.io
+    kind: Policy
+    name: ai-grid-ready

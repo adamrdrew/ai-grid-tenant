@@ -1,0 +1,31 @@
+# The console's backend (ServiceAccount ai-grid-provider-console in ai-grid,
+# from its chart) may get the root Policy
+# ai-grid-ready (apps/ai-grid-policies) only, never its per-cluster copies.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ai-grid-provider-console-backend
+  namespace: ai-grid-policies
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+  - apiGroups: [policy.open-cluster-management.io]
+    resources: [policies]
+    resourceNames: [ai-grid-ready]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ai-grid-provider-console-backend
+  namespace: ai-grid-policies
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ai-grid-provider-console-backend
+subjects:
+  - kind: ServiceAccount
+    name: ai-grid-provider-console
+    namespace: ai-grid-provider-console
