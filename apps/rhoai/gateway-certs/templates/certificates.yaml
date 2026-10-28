@@ -1,0 +1,34 @@
+{{- $baseDomain := required "baseDomain is required" .Values.baseDomain }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kserve-gateway
+  namespace: openshift-ingress
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  secretName: kserve-gateway-tls
+  dnsNames:
+    - {{ printf "%s.%s" .Values.kserve.hostname $baseDomain }}
+  duration: 2160h
+  renewBefore: 720h
+  issuerRef:
+    name: {{ .Values.issuerName }}
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: maas-gateway
+  namespace: openshift-ingress
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  secretName: maas-gateway-tls
+  dnsNames:
+    - {{ printf "%s.%s" .Values.maas.hostname $baseDomain }}
+  duration: 2160h
+  renewBefore: 720h
+  issuerRef:
+    name: {{ .Values.issuerName }}
+    kind: ClusterIssuer

@@ -1,0 +1,7 @@
+baseDomain: ""
+issuerName: rhoai-gateway-letsencrypt
+acmeServer: https://acme-v02.api.letsencrypt.org/directory
+kserve:
+  hostname: llm
+maas:
+  hostname: maas

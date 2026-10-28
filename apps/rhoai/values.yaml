@@ -85,6 +85,12 @@ components:
             port: 443
             # hostname: <HOSTNAME> # Uncomment this line to use a specific hostname.
             protocol: HTTPS
+            tls:
+              mode: Terminate
+              certificateRefs:
+                - group: ""
+                  kind: Secret
+                  name: kserve-gateway-tls
             allowedRoutes:
               namespaces:
                 # The following is an example of how to restrict the namespaces to the interested ones.
@@ -126,6 +132,12 @@ components:
               port: 443
               # hostname: <HOSTNAME> # Uncomment this line to use a specific hostname.
               protocol: HTTPS
+              tls:
+                mode: Terminate
+                certificateRefs:
+                  - group: ""
+                    kind: Secret
+                    name: maas-gateway-tls
               allowedRoutes:
                 namespaces:
                   # The following is an example of how to restrict the namespaces to the interested ones.

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: rhoai-gateway-certs
+description: Public certificates for the RHOAI Gateway API listeners
+type: application
+version: 0.1.0
