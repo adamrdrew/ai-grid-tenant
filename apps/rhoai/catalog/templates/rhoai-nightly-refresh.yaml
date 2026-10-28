@@ -113,6 +113,7 @@ rules:
       - packagemanifests
     verbs:
       - get
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -169,13 +170,25 @@ spec:
               model_controller_wait_timeout="${MODEL_CONTROLLER_WAIT_TIMEOUT_SECONDS}"
 
               sleep "${catalog_settle_seconds}"
-              channel_records="$(oc get packagemanifest "${package}" -n "${catalog_namespace}" \
-                -o jsonpath='{range .status.channels[*]}{.name}|{.currentCSV}|{.currentCSVDesc.annotations.containerImage}{"\n"}{end}')"
-              channel_record="$(printf '%s\n' "${channel_records}" | grep -F "${channel}|" | head -n 1)"
+              # A package name can occur in multiple catalogs. Select the source
+              # configured on this Subscription before choosing its channel.
+              catalog_record="$(oc get subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}" \
+                -o jsonpath='{.spec.source}{"|"}{.spec.sourceNamespace}')"
+              IFS='|' read -r catalog_name subscription_catalog_namespace <<< "${catalog_record}"
+              if [[ -z "${catalog_name}" ]]; then
+                echo "ERROR: Subscription ${subscription_name} has no catalog source" >&2
+                exit 1
+              fi
+              catalog_namespace="${subscription_catalog_namespace:-${catalog_namespace}}"
+              channel_records="$(oc get packagemanifests -n "${catalog_namespace}" \
+                --field-selector "metadata.name=${package}" \
+                --selector "catalog=${catalog_name},catalog-namespace=${catalog_namespace}" \
+                -o jsonpath='{range .items[*].status.channels[*]}{.name}|{.currentCSV}|{.currentCSVDesc.annotations.containerImage}{"\n"}{end}')"
+              channel_record="$(printf '%s\n' "${channel_records}" | awk -F '|' -v channel="${channel}" '$1 == channel { print; exit }')"
               desired_csv="$(printf '%s\n' "${channel_record}" | cut -d'|' -f2)"
               catalog_image="$(printf '%s\n' "${channel_record}" | cut -d'|' -f3)"
               if [[ -z "${desired_csv}" || -z "${catalog_image}" ]]; then
-                echo "ERROR: channel ${channel} has no CSV or operator image in PackageManifest ${package}" >&2
+                echo "ERROR: channel ${channel} has no CSV or operator image for package ${package} in catalog ${catalog_namespace}/${catalog_name}" >&2
                 exit 1
               fi
 
@@ -202,7 +215,7 @@ spec:
 
                 oc patch subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}" \
                   --subresource=status --type=merge \
-                  -p '{"status":{"state":"None","currentCSV":"","installedCSV":"","installPlanRef":null,"install":null}}'
+                  -p '{"status":{"state":"None","currentCSV":"","installedCSV":"","installPlanRef":null,"installplan":null}}'
 
                 deadline=$((SECONDS + wait_timeout))
                 last_log=0
