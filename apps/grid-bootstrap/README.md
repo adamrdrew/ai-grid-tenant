@@ -1,34 +1,35 @@
 # Grid bootstrap
 
-This Application runs once on the hub and follows the bootstrap chart in
-`odh-gitops:feature-ai-grid`. Merge the chart there before merging this app.
-The root ApplicationSet discovers this directory automatically.
+Bootstrap is the first lifecycle phase of the existing `grid-enrollment` chart.
+This hub Application follows `odh-gitops:feature-ai-grid` and selects its external
+identity mode, with the optional cert-manager integration enabled.
 
-Bootstrap adds the namespaced cert-manager Issuer `redhat-ai-grid/grid-ca`,
-referencing the existing `grid-ca-key` Secret. The enrollment service keeps
-ownership of that CA. This Application neither generates a replacement CA
-nor changes the existing site identities or enrollment deployment.
+It creates only the namespaced Issuer `redhat-ai-grid/grid-ca`, referencing the
+existing `grid-ca-key` Secret. The current enrollment service remains running
+in its original Application, and existing site identities keep their trust.
+No site Certificates or ACM delivery policies are enabled by these values.
 
-The next lifecycle stage, enroll, can request a Certificate for each managed
-cluster and use ACM to deliver its identity. Decommission must withdraw that
-site's membership and stop renewal before removing its ACM registration. Both
-stages are separate from this bootstrap Application.
+The Application name, Helm release name, destination, and Issuer name are kept
+unchanged during migration from the temporary standalone bootstrap chart. Argo
+updates the same Issuer in place; it does not transfer it to another Application.
+Merge the ODH enrollment mode change first. Remove the obsolete standalone chart
+only after this source change is Synced and Healthy.
 
 ## Verify
 
-Use an explicit hub context:
+Use the explicit hub context:
 
 ```sh
-kubectl --context "$HUB_CONTEXT" -n openshift-gitops get application grid-bootstrap
-kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get issuer grid-ca
+kubectl --context "$HUB_CONTEXT" -n openshift-gitops get applications.argoproj.io grid-bootstrap
+kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get issuers.cert-manager.io grid-ca
 kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid wait issuer/grid-ca \
   --for=condition=Ready --timeout=120s
 ```
 
-An unready Issuer indicates a missing or unsuitable CA Secret or an unavailable
-cert-manager controller. Restore the existing CA if needed. Do not change the
-mode to Generate to repair this installation.
+The issuer must still reference `grid-ca-key`, and its UID should be unchanged.
+An unready Issuer indicates an unavailable controller or an unsuitable CA Secret;
+restore the existing CA rather than selecting Generate mode.
 
-Removing this Application removes its Issuer. It leaves the existing CA and
-site Secrets intact. Certificate issuance through this Issuer stops, while
-previously issued certificates retain their validity.
+Enrollment will add site metadata and identity delivery. Decommission must
+withdraw membership and stop renewal before cleanup and ACM detachment. These
+later stages are not activated by this bootstrap migration.

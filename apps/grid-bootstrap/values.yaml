@@ -1,8 +1,11 @@
-enabled: true
-issuer:
-  name: grid-ca
-ca:
-  # Enrollment already owns this CA. Bootstrap adds a cert-manager Issuer
-  # that references it, preserving the trust of the existing sites.
-  mode: Existing
-  secretName: grid-ca-key
+mode: external
+external:
+  certManager:
+    enabled: true
+    issuer:
+      create: true
+      name: grid-ca
+    ca:
+      # The existing service owns this CA; this phase only references it.
+      mode: Existing
+      secretName: grid-ca-key
