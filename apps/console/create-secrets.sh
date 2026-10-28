@@ -14,6 +14,7 @@ context="${HUB_CONTEXT:-}"
 realm="${KEYCLOAK_REALM:-saas}"
 keycloak_namespace="${KEYCLOAK_NAMESPACE:-maas-db}"
 backend_user="${KEYCLOAK_BACKEND_USER:-ai-grid-console-backend}"
+adopt_user_id="${ADOPT_KEYCLOAK_USER_ID:-}"
 name=ai-grid-provider-console
 
 usage() {
@@ -33,6 +34,10 @@ Optional environment:
   KEYCLOAK_NAMESPACE      Keycloak's namespace; defaults to maas-db.
   KEYCLOAK_BACKEND_USER   The backend's Keycloak user; defaults to
                           ai-grid-console-backend.
+  ADOPT_KEYCLOAK_USER_ID  The id of an existing backend user to adopt, when no
+                          Secret records one yet (a user an older version of
+                          this script created). The error that asks for it
+                          prints the id.
 EOF
 }
 
@@ -97,22 +102,44 @@ api() { curl -fsS -H @<(printf 'Authorization: Bearer %s\n' "$token") -H 'Conten
 base="https://$keycloak_host/admin/realms/$realm"
 
 # The realm brokers tenants' own IdPs, so a tenant could sign in first under
-# this username. Adopt only a user this script created (marked by an
-# attribute) that has no brokered identity; otherwise stop. The user has no
-# email, so a broker can't link a tenant's login to it by email.
+# this username. Trust only a user whose id the backend's Secret records (only a
+# hub admin can write it), or that the admin names with ADOPT_KEYCLOAK_USER_ID,
+# and that has no brokered identity; otherwise stop. Keycloak's own record of
+# the user can't be the mark: an attribute the realm's user profile doesn't
+# declare is dropped, and any realm admin can grant a group.
+# The user has an email because a realm can require one before it issues
+# tokens. A tenant's IdP can claim any email, and a first-login flow may link a
+# brokered login to an existing account by email, so the address is random
+# (kept across reruns) and nobody outside the hub can know it.
+recorded_id="$(secret_value "$namespace" ai-grid-backend-keycloak user-id)"
 user_json="$(api "$base/users?username=$backend_user&exact=true&briefRepresentation=false" | jq -c '.[0] // empty')"
 if [ -z "$user_json" ]; then
-  jq -n --arg u "$backend_user" \
-    '{username: $u, enabled: true, firstName: "AI Grid", lastName: "console backend",
-      attributes: {"ai-grid-console-backend": ["true"]}}' |
+  backend_email="${backend_user}+$(openssl rand -hex 16)@console.invalid"
+  jq -n --arg u "$backend_user" --arg e "$backend_email" \
+    '{username: $u, enabled: true, email: $e, emailVerified: true, firstName: "AI Grid", lastName: "console backend",
+      requiredActions: []}' |
     api -X POST "$base/users" -d @- >/dev/null
   user_json="$(api "$base/users?username=$backend_user&exact=true&briefRepresentation=false" | jq -ce '.[0]')"
+  recorded_id="$(jq -r .id <<<"$user_json")"
 fi
-[ "$(jq -r '.attributes["ai-grid-console-backend"][0] // empty' <<<"$user_json")" = true ] ||
-  die "Keycloak user $backend_user in realm $realm exists but wasn't created by this script; refusing to give it admin roles"
 user_id="$(jq -r .id <<<"$user_json")"
+case "$user_id" in
+  "$recorded_id" | "$adopt_user_id") ;;
+  *) die "Keycloak user $backend_user in realm $realm (id $user_id) isn't the one $namespace/ai-grid-backend-keycloak records; if you know this script made it, rerun with ADOPT_KEYCLOAK_USER_ID=$user_id" ;;
+esac
 [ "$(api "$base/users/$user_id/federated-identity" | jq length)" = 0 ] ||
   die "Keycloak user $backend_user in realm $realm has a brokered identity; refusing to give it admin roles"
+# A realm may require profile fields or actions; a user with pending required
+# actions can't get a token ("Account is not fully set up"). Keep its random
+# email, or give it one.
+backend_email="$(jq -r '.email // empty' <<<"$user_json")"
+case "$backend_email" in
+  "$backend_user+"????????????????????????????????"@console.invalid") ;;
+  *) backend_email="${backend_user}+$(openssl rand -hex 16)@console.invalid" ;;
+esac
+jq --arg e "$backend_email" \
+  '. + {email: $e, emailVerified: true, firstName: "AI Grid", lastName: "console backend", requiredActions: []}' <<<"$user_json" |
+  api -X PUT "$base/users/$user_id" -d @- >/dev/null
 backend_password="$(secret_value "$namespace" ai-grid-backend-keycloak password)"
 backend_password="${backend_password:-$(openssl rand -base64 24)}"
 PW="$backend_password" jq -n '{type: "password", value: env.PW, temporary: false}' |
@@ -121,9 +148,9 @@ realm_management="$(api "$base/clients?clientId=realm-management" | jq -re '.[0]
 api "$base/clients/$realm_management/roles" |
   jq '[.[] | select(.name | IN("view-users", "query-users", "view-realm", "manage-realm"))]' |
   api -X POST "$base/users/$user_id/role-mappings/clients/$realm_management" -d @- >/dev/null
-PW="$backend_password" jq -n --arg ns "$namespace" --arg url "https://$keycloak_host" --arg realm "$realm" --arg user "$backend_user" \
+PW="$backend_password" BACKEND_USER_ID="$user_id" jq -n --arg ns "$namespace" --arg url "https://$keycloak_host" --arg realm "$realm" --arg user "$backend_user" \
   '{apiVersion: "v1", kind: "Secret", metadata: {name: "ai-grid-backend-keycloak", namespace: $ns}, type: "Opaque",
-    stringData: {url: $url, realm: $realm, "admin-realm": $realm, username: $user, password: env.PW}}' |
+    stringData: {url: $url, realm: $realm, "admin-realm": $realm, username: $user, password: env.PW, "user-id": env.BACKEND_USER_ID}}' |
   apply
 unset backend_password token
 printf 'Created or updated %s/ai-grid-backend-keycloak (Keycloak user %s in realm %s).\n' "$namespace" "$backend_user" "$realm"
