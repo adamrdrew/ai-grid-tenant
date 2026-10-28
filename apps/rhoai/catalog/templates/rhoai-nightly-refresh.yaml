@@ -7,7 +7,7 @@ metadata:
   name: rhoai-nightly-refresh
   namespace: {{ .Values.refresh.subscriptionNamespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "-1"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -15,7 +15,7 @@ metadata:
   name: rhoai-nightly-refresh
   namespace: {{ .Values.refresh.subscriptionNamespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "-1"
 rules:
   - apiGroups:
       - operators.coreos.com
@@ -50,7 +50,7 @@ metadata:
   name: rhoai-nightly-refresh
   namespace: {{ .Values.refresh.subscriptionNamespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "-1"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -65,7 +65,7 @@ kind: ClusterRole
 metadata:
   name: rhoai-nightly-refresh
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "-1"
 rules:
   - apiGroups:
       - packages.operators.coreos.com
@@ -79,7 +79,7 @@ kind: ClusterRoleBinding
 metadata:
   name: rhoai-nightly-refresh
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "-1"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -95,7 +95,7 @@ metadata:
   name: rhoai-nightly-refresh-{{ $refreshKey | sha256sum | trunc 10 }}
   namespace: {{ .Values.refresh.subscriptionNamespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: {{ .Values.refresh.activeDeadlineSeconds }}
