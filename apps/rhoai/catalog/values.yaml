@@ -7,6 +7,7 @@ refresh:
   subscriptionName: rhods-operator
   modelControllerNamespace: redhat-ods-applications
   modelControllerName: odh-model-controller
+  modelControllerParametersConfigMap: odh-model-controller-parameters
   image: registry.redhat.io/openshift4/ose-cli@sha256:75bd612f3d2b4dbddcbd7a48e12b5cb4d36e4a2683e7f48209e40596e0fbfc30
   catalogSettleSeconds: 15
   waitTimeoutSeconds: 600

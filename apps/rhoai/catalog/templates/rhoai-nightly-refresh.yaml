@@ -76,6 +76,13 @@ rules:
     verbs:
       - get
       - delete
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -158,6 +165,7 @@ spec:
               wait_timeout="${WAIT_TIMEOUT_SECONDS}"
               model_controller_namespace="${MODEL_CONTROLLER_NAMESPACE}"
               model_controller_name="${MODEL_CONTROLLER_NAME}"
+              model_controller_parameters_configmap="${MODEL_CONTROLLER_PARAMETERS_CONFIGMAP}"
               model_controller_wait_timeout="${MODEL_CONTROLLER_WAIT_TIMEOUT_SECONDS}"
 
               sleep "${catalog_settle_seconds}"
@@ -234,11 +242,15 @@ spec:
 
               current_model_controller_image="$(oc get deployment "${model_controller_name}" -n "${model_controller_namespace}" \
                 -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
+              current_model_controller_parameters_image="$(oc get configmap "${model_controller_parameters_configmap}" -n "${model_controller_namespace}" \
+                -o jsonpath='{.data.odh-model-controller}' 2>/dev/null || true)"
               echo "Desired model-controller image: ${desired_model_controller_image}"
               echo "Current model-controller image: ${current_model_controller_image:-<missing>}"
+              echo "Current parameters image: ${current_model_controller_parameters_image:-<missing>}"
 
-              if [[ "${current_model_controller_image}" != "${desired_model_controller_image}" ]]; then
-                echo "Refreshing ${model_controller_namespace}/${model_controller_name} Deployment"
+              if [[ "${current_model_controller_image}" != "${desired_model_controller_image}" || "${current_model_controller_parameters_image}" != "${desired_model_controller_image}" ]]; then
+                echo "Refreshing ${model_controller_namespace}/${model_controller_parameters_configmap} ConfigMap and ${model_controller_name} Deployment"
+                oc delete configmap "${model_controller_parameters_configmap}" -n "${model_controller_namespace}" --ignore-not-found=true
                 oc delete deployment "${model_controller_name}" -n "${model_controller_namespace}" --ignore-not-found=true
 
                 model_controller_deadline=$((SECONDS + model_controller_wait_timeout))
@@ -246,16 +258,18 @@ spec:
                 while (( SECONDS < model_controller_deadline )); do
                   current_model_controller_image="$(oc get deployment "${model_controller_name}" -n "${model_controller_namespace}" \
                     -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
+                  current_model_controller_parameters_image="$(oc get configmap "${model_controller_parameters_configmap}" -n "${model_controller_namespace}" \
+                    -o jsonpath='{.data.odh-model-controller}' 2>/dev/null || true)"
                   model_controller_available="$(oc get deployment "${model_controller_name}" -n "${model_controller_namespace}" \
                     -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null || true)"
 
-                  if [[ "${current_model_controller_image}" == "${desired_model_controller_image}" && "${model_controller_available}" == "True" ]]; then
+                  if [[ "${current_model_controller_image}" == "${desired_model_controller_image}" && "${current_model_controller_parameters_image}" == "${desired_model_controller_image}" && "${model_controller_available}" == "True" ]]; then
                     echo "Model controller refreshed to ${desired_model_controller_image}"
                     exit 0
                   fi
 
                   if (( SECONDS - model_controller_last_log >= 15 )); then
-                    echo "Waiting for model-controller refresh: image=${current_model_controller_image:-<missing>} available=${model_controller_available:-<missing>}"
+                    echo "Waiting for model-controller refresh: image=${current_model_controller_image:-<missing>} parameters=${current_model_controller_parameters_image:-<missing>} available=${model_controller_available:-<missing>}"
                     model_controller_last_log="${SECONDS}"
                   fi
                   sleep 5
@@ -285,6 +299,8 @@ spec:
               value: {{ .Values.refresh.modelControllerNamespace | quote }}
             - name: MODEL_CONTROLLER_NAME
               value: {{ .Values.refresh.modelControllerName | quote }}
+            - name: MODEL_CONTROLLER_PARAMETERS_CONFIGMAP
+              value: {{ .Values.refresh.modelControllerParametersConfigMap | quote }}
             - name: MODEL_CONTROLLER_WAIT_TIMEOUT_SECONDS
               value: {{ .Values.refresh.modelControllerWaitTimeoutSeconds | quote }}
           resources:
