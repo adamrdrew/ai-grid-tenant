@@ -42,9 +42,22 @@ creates or updates, keeping existing values:
 
 - `ai-grid-provider-console-oauth` and OAuthClient `ai-grid-provider-console`:
   OpenShift sign-in, redirecting to the Route's `/oauth2/callback`.
-- `ai-grid-backend-keycloak`: the backend's Keycloak URL, realm, user and
-  password. The script creates that user in realm `saas`, signing in to
-  Keycloak's master realm with the admin login in `maas-db/keycloak-secrets`.
+- `ai-grid-backend-keycloak`: the backend's Keycloak URL, realm, user,
+  password and the user's id. The script creates that user in realm `saas`,
+  signing in to Keycloak's master realm with the admin login in
+  `maas-db/keycloak-secrets`. On a rerun it trusts only the user whose id this
+  Secret records and that has no brokered identity, so a tenant who signs in
+  first under the same username doesn't get its roles. A user made by an older
+  version of the script has no recorded id: the script stops and prints the
+  id, and you rerun it with `ADOPT_KEYCLOAK_USER_ID=<that id>` once you've
+  checked it's the console's.
+- The user has a random email, `ai-grid-console-backend+<32 hex>@console.invalid`,
+  verified, with no required actions, because a realm can require an email
+  before it issues tokens. It's random because a tenant's IdP can claim any
+  email, and a first-login flow may link a brokered login to an existing
+  account by email. Nobody outside the hub knows this one. A service-account
+  client would remove brokered login from the picture entirely; the backend
+  signs in with a username and password today.
 - `ai-grid-backend-git`: the catalog token, mounted into the backend as a file.
 
 Then it restarts the console. Sign in with an OpenShift login that may patch
