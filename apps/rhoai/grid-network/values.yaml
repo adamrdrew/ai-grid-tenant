@@ -11,3 +11,11 @@ gatewayName: grid-gateway
 # do not exist, which forks the trust domain on a site that has yet to enrol.
 # Turn it on once the site holds grid-ca and grid-site-identity from enrolment.
 enabled: false
+
+# -- Bridge nightly payloads that update the Grid operator before its config
+# watch RBAC. Disable once the platform payload supplies the equivalent Role.
+# Applies only when the GridNetwork is enabled, in the Helm release namespace.
+operatorConfigReadRbac:
+  enabled: true
+  serviceAccountName: grid-operator
+  configMapName: grid-operator-config
