@@ -171,8 +171,12 @@ spec:
                     -o jsonpath='{.status.state}' 2>/dev/null || true)"
                   current_csv="$(oc get subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}" \
                     -o jsonpath='{.status.currentCSV}' 2>/dev/null || true)"
-                  current_image="$(oc get csv "${current_csv}" -n "${subscription_namespace}" \
-                    -o jsonpath='{.metadata.annotations.containerImage}' 2>/dev/null || true)"
+                  if [[ -n "${current_csv}" ]]; then
+                    current_image="$(oc get csv "${current_csv}" -n "${subscription_namespace}" \
+                      -o jsonpath='{.metadata.annotations.containerImage}' 2>/dev/null || true)"
+                  else
+                    current_image=""
+                  fi
 
                   if [[ "${state}" == "AtLatestKnown" && "${current_csv}" == "${desired_csv}" && "${current_image}" == "${catalog_image}" ]]; then
                     echo "OLM refreshed ${desired_csv} to ${catalog_image}"
