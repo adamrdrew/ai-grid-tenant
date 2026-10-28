@@ -1,7 +1,11 @@
-baseDomain: ""
 issuerName: rhoai-gateway-letsencrypt
 acmeServer: https://acme-v02.api.letsencrypt.org/directory
-kserve:
-  hostname: llm
-maas:
-  hostname: maas
+certificates:
+  - name: kserve-gateway
+    secretName: kserve-gateway-tls
+    hostnamePrefix: llm
+    gatewayName: openshift-ai-inference
+  - name: maas-gateway
+    secretName: maas-gateway-tls
+    hostnamePrefix: maas
+    gatewayName: maas-default-gateway

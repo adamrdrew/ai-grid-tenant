@@ -39,12 +39,6 @@ spec:
               - $values/apps/rhoai/values.yaml
               - $values/apps/rhoai/values-{{ .name }}.yaml
             parameters:
-              - name: components.kserve.gateway.spec.listeners[1].hostname
-                value: '{{ printf "llm.%s" (trimPrefix "api." (trimSuffix ":6443" (trimPrefix "https://" .server))) }}'
-                forceString: true
-              - name: components.aigateway.modelsAsAService.gateway.spec.listeners[1].hostname
-                value: '{{ printf "maas.%s" (trimPrefix "api." (trimSuffix ":6443" (trimPrefix "https://" .server))) }}'
-                forceString: true
               - name: grid-enrollment.enabled
                 value: '{{ eq .name "local-cluster" | toString }}'
               - name: praxis-gateway.grid.siteName
@@ -59,10 +53,6 @@ spec:
           path: apps/rhoai/gateway-certs
           helm:
             releaseName: rhoai-gateway-certs
-            parameters:
-              - name: baseDomain
-                value: '{{ trimPrefix "api." (trimSuffix ":6443" (trimPrefix "https://" .server)) }}'
-                forceString: true
         # The enrollment service runs on the hub, so a managed cluster excludes these.
         - repoURL: https://github.com/kahowell/ai-grid-tenant.git
           targetRevision: HEAD
