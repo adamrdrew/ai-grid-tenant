@@ -36,6 +36,7 @@ rules:
       - clusterserviceversions
     verbs:
       - get
+      - delete
   - apiGroups:
       - apps
     resources:
@@ -161,6 +162,7 @@ spec:
               else
                 echo "Refreshing ${subscription_namespace}/${subscription_name} by recreating the Subscription"
                 oc delete subscription.operators.coreos.com "${subscription_name}" -n "${subscription_namespace}"
+                oc delete csv "${desired_csv}" -n "${subscription_namespace}" --ignore-not-found=true
 
                 deadline=$((SECONDS + wait_timeout))
                 last_log=0
