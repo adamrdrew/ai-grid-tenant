@@ -8,7 +8,7 @@ flow through the single-broker `saas` realm.
 - Access to the cluster through `kubectl`.
 - `kubectl`, `curl`, `jq`, `sed`, and `awk` installed locally.
 - A MaaS subscription that is synchronized and healthy.
-- A test user provisioned by the Keycloak setup (`alice` or `bob`).
+- A test user provisioned by the Keycloak setup (`alice`, `bob`, or `carol`).
 - Access to the Keycloak Secret containing the redirect URI registered for the
   `tenant-demo` OIDC client.
 
@@ -22,10 +22,10 @@ REDIRECT_URI='<registered-redirect-uri>' \
   docs/maas-oidc-smoke/scripts/maas-oidc-smoke.sh alice
 ```
 
-Run the smoke test for an administrator:
+Run the smoke test for a tenant administrator:
 
 ```sh
-docs/maas-oidc-smoke/scripts/maas-oidc-smoke.sh alice
+docs/maas-oidc-smoke/scripts/maas-oidc-smoke.sh carol
 ```
 
 Discover the MaaS Gateway through another Kubernetes context by setting
@@ -37,7 +37,7 @@ GATEWAY_KUBE_CONTEXT='<context-name>' \
   docs/maas-oidc-smoke/scripts/maas-oidc-smoke.sh alice
 ```
 
-Run it for a user without an accessible subscription:
+Run it for the user-subject authorization policy:
 
 ```sh
 docs/maas-oidc-smoke/scripts/maas-oidc-smoke.sh bob
@@ -68,10 +68,9 @@ The script:
 6. Calls `/v1/api-keys/search` and verifies that a newly created key is listed.
 7. Asks for approval, then sends an OpenAI-compatible completion request.
 
-For `alice`, the test expects one accessible subscription, creates an
-ephemeral API key, and verifies that the key appears in the search result.
-It then uses that key for one inference request. For `bob`, it expects no
-accessible subscription, no API keys, and skips inference.
+For `alice`, `bob`, and `carol`, the test expects one accessible subscription,
+creates an ephemeral API key, and verifies that the key appears in the search
+result. It then uses that key for one inference request.
 
 ## Inference approval
 
@@ -93,7 +92,10 @@ Successful runs write private runtime credentials under `/tmp`:
 
 - `/tmp/maas-alice-access-token`
 - `/tmp/maas-bob-access-token`
+- `/tmp/maas-carol-access-token`
 - `/tmp/maas-alice-api-key`
+- `/tmp/maas-bob-api-key`
+- `/tmp/maas-carol-api-key`
 
 Remove these files when they are no longer needed. API keys created by the
 script expire after one hour.

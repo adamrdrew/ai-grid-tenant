@@ -6,7 +6,7 @@ usage() {
   cat <<'EOF'
 Usage: docs/maas-oidc-smoke/scripts/maas-oidc-smoke.sh USER
 
-USER must be "alice" or "bob".
+USER must be "alice", "bob", or "carol".
 
 Environment overrides:
   GATEWAY_KUBE_CONTEXT   Kubernetes context used only to discover the MaaS
@@ -82,6 +82,10 @@ case "$user" in
     password_key=GRID_TENANT_1_TEST_USER_PASSWORD
     ;;
   bob)
+    broker_hint=grid-tenant-2
+    password_key=GRID_TENANT_2_TEST_USER_PASSWORD
+    ;;
+  carol)
     broker_hint=grid-tenant-2
     password_key=GRID_TENANT_2_TEST_USER_PASSWORD
     ;;
