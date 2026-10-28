@@ -226,8 +226,7 @@ spec:
               fi
 
               desired_model_controller_image="$(oc get csv "${desired_csv}" -n "${subscription_namespace}" \
-                -o jsonpath='{range .spec.relatedImages[*]}{.name}={.image}{"\n"}{end}' \
-                | grep -F 'odh_model_controller_image=' | cut -d'=' -f2-)"
+                -o jsonpath='{.spec.relatedImages[?(@.name=="odh_model_controller_image")].image}')"
               if [[ -z "${desired_model_controller_image}" ]]; then
                 echo "ERROR: CSV ${desired_csv} has no odh_model_controller_image related image" >&2
                 exit 1
