@@ -28,6 +28,7 @@ rules:
     resources:
       - subscriptions/status
     verbs:
+      - get
       - patch
   - apiGroups:
       - operators.coreos.com
