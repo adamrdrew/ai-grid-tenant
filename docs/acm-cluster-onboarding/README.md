@@ -88,10 +88,11 @@ kubectl --context "$HUB_CONTEXT" -n openshift-gitops get placementdecisions
 kubectl --context "$HUB_CONTEXT" -n openshift-gitops get applications
 ```
 
-The new cluster should appear in the
-`acm-models-facebook-opt-125m` placement decision and receive generated
-applications such as `acm-models-facebook-opt-125m-<cluster-name>`,
-`rhoai-<cluster-name>`, and `maas-db-<cluster-name>`.
+The new cluster should appear in the shared `acm-models-gitops-cluster`
+placement decision used for Argo CD registration. Model-specific placements then
+select the clusters that receive generated applications such as
+`acm-models-facebook-opt-125m-<cluster-name>`, `rhoai-<cluster-name>`, and
+`maas-db-<cluster-name>`.
 
 ## Security and repeatability
 
