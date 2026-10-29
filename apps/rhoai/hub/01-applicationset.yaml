@@ -25,7 +25,7 @@ spec:
         - repoURL: https://github.com/kahowell/ai-grid-tenant.git
           targetRevision: HEAD
           ref: values
-        # Temporary v0.3.0-rc.1 schemas until the RHOAI manifest bundle catches up.
+        # Temporary v0.3.0-rc.2 schemas until the RHOAI manifest bundle catches up.
         # The overlay hands CRD management to Argo and protects them from pruning.
         # See odh-gitops/components/ai-grid-crds/README.md for the ownership handoff.
         - repoURL: https://github.com/opendatahub-io/odh-gitops.git

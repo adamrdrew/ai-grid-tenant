@@ -1,11 +1,11 @@
 # Peers dial this directly, so the SNI stays <site>.grid.internal and matches the leaf.
 fullnameOverride: grid-provider-gateway
 # A standalone release does not inherit the umbrella's pin. Keep this Grid
-# v0.3.0-rc.1 digest aligned with the shared gateway image in values.yaml.
+# v0.3.0-rc.2 digest aligned with the shared gateway image in values.yaml.
 image:
   flavor: grid-gateway
   repository: registry.redhat.io/rhoai/odh-praxis-ai-grid-gateway-rhel9
-  digest: sha256:17b43cd1aeeb879c20c069774391eecd09f48d8920b2262000726ff401a7f54b
+  digest: sha256:cdd26e50ec289a71ea4f870f8c5097908b88d78de5882defd886683e846b35c0
 grid:
   networkName: grid
 praxisConfig:
