@@ -12,13 +12,13 @@ operator:
       createNamespace: false
       config:
         env:
-          # Validation build from praxis-proxy/grid commit 7fc86e557e2fea6e064056ba33e17a02350d8a37.
+          # Grid v0.3.0-rc.2 operator from the RHDS build at bca253e.
           - name: RELATED_IMAGE_ODH_PRAXIS_AI_GRID_OPERATOR_IMAGE
-            value: quay.io/sbatsche/grid-operator@sha256:0ed65dbf57ca597714ed01eb7c7fe33580eadae1075760659785f704d1959b92
-          # KServe validation build 01bc7d290ebb9880e313d8e302472cf2ec0d8618.
-          # Stored under lab-kserve-llmisvc-01bc7d290 in the writable lab repository.
+            value: registry.redhat.io/rhoai/odh-praxis-ai-grid-operator-rhel9@sha256:dd013c1f395fb418d0408240379d494fb36dee1b2b68a010001cb5c2eda1cdd5
+          # ODH KServe build of opendatahub-io/kserve#2128 (EPP metrics over TLS) at
+          # 27a1755, until the RHOAI 3.6 payload carries it.
           - name: RELATED_IMAGE_ODH_KSERVE_LLMISVC_CONTROLLER_IMAGE
-            value: quay.io/sbatsche/grid-operator@sha256:77dc985f76c18bef2a11c565c2da9c87cde7381368e492c2d5e38d4cf918dfd3
+            value: quay.io/opendatahub/odh-kserve-llmisvc-controller@sha256:69d54ad4c94726d5a0eca8202ba5820b70ea0bfa55f7998b440966dbd566f0a6
 # Workaround for https://redhat.atlassian.net/browse/RHOAIENG-99507:
 # RHACM's multicluster-observability-addon also installs COO with its own
 # OperatorGroup (named after the namespace), which conflicts with the chart's
@@ -150,7 +150,7 @@ components:
                           - models-as-a-service
                           - redhat-ai-gateway-infra
 
-# Grid v0.3.0-rc.1 runtimes from the RHDS build at 992b076.
+# Grid v0.3.0-rc.2 runtimes from the RHDS build at bca253e.
 # The subcharts otherwise fall back to ghcr.io/praxis-proxy. Keep these pins
 # aligned with the Grid operator payload when updating the catalog:
 #   oc -n redhat-ods-operator get deploy rhods-operator -o json | jq -r '
@@ -158,9 +158,9 @@ components:
 global:
   relatedImages:
     - name: RELATED_IMAGE_ODH_PRAXIS_AI_GRID_GATEWAY_IMAGE
-      value: registry.redhat.io/rhoai/odh-praxis-ai-grid-gateway-rhel9@sha256:17b43cd1aeeb879c20c069774391eecd09f48d8920b2262000726ff401a7f54b
+      value: registry.redhat.io/rhoai/odh-praxis-ai-grid-gateway-rhel9@sha256:cdd26e50ec289a71ea4f870f8c5097908b88d78de5882defd886683e846b35c0
     - name: RELATED_IMAGE_ODH_PRAXIS_AI_GRID_ENROLLMENT_IMAGE
-      value: registry.redhat.io/rhoai/odh-praxis-ai-grid-enrollment-rhel9@sha256:6dcbefe9f5496b014d4d588ec2bc3e295f6fbd3e1c5f2418145672476731b905
+      value: registry.redhat.io/rhoai/odh-praxis-ai-grid-enrollment-rhel9@sha256:a31c0fb11b74bc2ef13530b7f24a87b54c4ff4c476cb5b2d2c837093eabd61da
     # The bundle publishes this one as RELATED_IMAGE_POSTGRESQL_16_IMAGE.
     - name: RELATED_IMAGE_ODH_PRAXIS_AI_GRID_POSTGRES_IMAGE
       value: registry.redhat.io/rhel9/postgresql-16@sha256:435ba5c1d3f686cf8a45ae525b4d169ced6b33753bcfab99a1498bd9e6e99817

@@ -23,12 +23,9 @@ and GridSite CRDs to be Established and for the identity Secrets, then delivers
 the complete network with Local membership, poll transport, SPIFFE trust, and
 the per-cluster gateway reference.
 
-The temporary operator and bootstrap image digests are built from
-[`praxis-proxy/grid` commit `3a5fa6f`](https://github.com/praxis-proxy/grid/commit/3a5fa6f74943fcb0175263bae1be455e7b355ad8)
-with the repository Containerfiles and `CARGO_PROFILE=dev`. They are amd64
-validation builds, pullable without additional credentials. The operator uses
-the existing RHOAI Subscription image override; bootstrap uses the chart's
-normal image value. Replace these pins with released images after validation.
+The operator and bootstrap images are the Grid v0.3.0-rc.2 RHDS builds. The
+operator uses the existing RHOAI Subscription image override; bootstrap uses the
+chart's normal image value. Keep both digests aligned with apps/rhoai/values.yaml.
 
 Merge the chart update providing work-agent GridSite read permissions before
 this rollout. The local-endpoints policy creates a passthrough signals Route and
