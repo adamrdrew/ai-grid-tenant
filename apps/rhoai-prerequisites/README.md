@@ -1,6 +1,6 @@
 # RHOAI prerequisites
 
-This app distributes the RHOAI nightly registry prerequisites to every cluster
+This app distributes the RHOAI installation prerequisites to every cluster
 in the reserved `global` ACM cluster set:
 
 - the protected `redhat-ai-grid` and `redhat-ods-operator` Namespaces;
@@ -9,6 +9,8 @@ in the reserved `global` ACM cluster set:
   RHOAI catalog image;
 - a merged `openshift-config/pull-secret` entry for `quay.io/rhoai`, required
   for mirrored operator-bundle pulls.
+- the remote-only Limitador Redis configuration that shares MaaS rate-limit
+  counters through the Submariner service import.
 - the catalog ServiceAccount's `imagePullSecrets` wiring is managed by
   `apps/rhoai/catalog`; OLM does not update an already-created catalog
   ServiceAccount when `CatalogSource.spec.secrets` changes.
@@ -33,6 +35,24 @@ The global pull-secret policy is idempotent. It reads the current
 converges only the repository-scoped `quay.io/rhoai` entry to the hub-side
 RHOAI credential. Updating that Secret triggers the normal Machine Config
 Operator rollout to each node.
+
+## Shared Limitador Redis
+
+`apps/limitador-redis` owns the Redis instance and its local Limitador storage
+configuration on `local-cluster`. On every other managed cluster, the
+`rhoai-limitador-redis` Policy creates the `limitador-redis` namespace needed
+for the Submariner `ServiceImport`, the `kuadrant-system/limitador-redis`
+Secret, and the `Limitador/limitador` Redis storage reference. Remote
+Limitadors therefore use:
+
+```text
+redis://limitador-redis-master.limitador-redis.svc.clusterset.local:6379
+```
+
+The local Redis NetworkPolicy permits Submariner GlobalNet traffic
+(`242.0.0.0/8`). The policy intentionally excludes `local-cluster` so the
+existing local Argo Application remains the sole owner of the Redis and local
+Limitador storage resources.
 
 ## Create the hub Secret
 
@@ -66,4 +86,8 @@ kubectl --context "$SPOKE_CONTEXT" -n openshift-config get secret pull-secret \
   -o custom-columns='NAME:.metadata.name,TYPE:.type'
 kubectl --context "$SPOKE_CONTEXT" -n rhoai-prerequisites get configurationpolicy \
   rhoai-global-pull-secret
+kubectl --context "$SPOKE_CONTEXT" -n limitador-redis get serviceimport \
+  limitador-redis-master
+kubectl --context "$SPOKE_CONTEXT" -n kuadrant-system get limitador limitador \
+  -o jsonpath='{.spec.storage.redis.configSecretRef.name}{"\n"}'
 ```

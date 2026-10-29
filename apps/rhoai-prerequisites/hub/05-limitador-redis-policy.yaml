@@ -1,0 +1,48 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: rhoai-limitador-redis
+  namespace: rhoai-prerequisites
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  remediationAction: enforce
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: rhoai-limitador-redis
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: limitador-redis
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Secret
+                metadata:
+                  name: limitador-redis
+                  namespace: kuadrant-system
+                type: Opaque
+                stringData:
+                  URL: redis://limitador-redis-master.limitador-redis.svc.clusterset.local:6379
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: limitador.kuadrant.io/v1alpha1
+                kind: Limitador
+                metadata:
+                  name: limitador
+                  namespace: kuadrant-system
+                spec:
+                  storage:
+                    redis:
+                      configSecretRef:
+                        name: limitador-redis

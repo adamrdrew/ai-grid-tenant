@@ -56,6 +56,14 @@ environment variables listed by the script's usage output:
 docs/maas-oidc-smoke/scripts/maas-oidc-smoke.sh --help
 ```
 
+The rate-limit test uses the selected subscription's smallest finite token
+rate limit. It sizes a generated prompt from the tokens already reported by
+the successful inference request, exhausts the remaining quota, and expects a
+follow-up completion to return HTTP `429`. Because token usage is reported
+after a response, the probe retries up to `RATE_LIMIT_PROBE_ATTEMPTS` times.
+The test is skipped when the dynamically sized prompt would exceed
+`RATE_LIMIT_MAX_PROMPT_TOKENS`, avoiding an unsafe request payload.
+
 ## What the test verifies
 
 The script:
@@ -64,20 +72,26 @@ The script:
 2. Authenticates the selected user through the configured identity broker.
 3. Exchanges the authorization code for an OIDC access token.
 4. Calls `/v1/me` and `/v1/subscriptions`.
-5. Creates a one-hour ephemeral API key when the user has a subscription.
+5. Creates a one-hour ephemeral API key when the user has an owner-accessible
+   subscription.
 6. Calls `/v1/api-keys/search` and verifies that a newly created key is listed.
 7. Asks for approval, then sends an OpenAI-compatible completion request.
+8. Asks for approval, then exhausts and verifies the selected subscription's
+   finite token rate limit when it is small enough to test safely.
 
-For `alice`, `bob`, and `carol`, the test expects one accessible subscription,
-creates an ephemeral API key, and verifies that the key appears in the search
-result. It then uses that key for one inference request.
+For `alice` and `bob`, the test expects one owner-accessible subscription,
+creates an ephemeral API key, verifies that the key appears in the search
+result, and uses that key for one inference request. For `carol`, the test
+expects one organization-admin inventory subscription, skips API-key creation,
+and skips inference because organization-admin visibility does not grant an
+inference credential.
 
 ## Inference approval
 
-Before sending the inference request, the script stops and describes the
-action: the endpoint, model, prompt, and use of the newly created ephemeral
-API key. The request is sent only after an interactive `y` or `yes`
-response.
+Before sending the inference and rate-limit requests, the script stops and
+describes each action: the endpoint, model, prompt or configured quota, and use
+of the newly created ephemeral API key. Each request is sent only after an
+interactive `y` or `yes` response.
 
 For an unattended run where an explicit approval has already been given outside
 the script, set:

@@ -13,7 +13,8 @@ Environment overrides:
                          Gateway. Defaults to the current context.
   REDIRECT_URI           Redirect URI registered for the OIDC client. Defaults to
                          KEYCLOAK_REDIRECT_URI from the Keycloak secret.
-  ASSUME_YES             Set to 1 to proceed without the inference approval prompt.
+  ASSUME_YES             Set to 1 to proceed without the inference and
+                         rate-limit approval prompts.
   GATEWAY_HOST          MaaS Gateway hostname. Defaults to the Gateway status address.
   GATEWAY_PROTOCOL      Gateway protocol. Defaults to http.
   KEYCLOAK_NAMESPACE    Namespace containing the Keycloak secret. Defaults to maas-db.
@@ -26,6 +27,14 @@ Environment overrides:
   OIDC_CLIENT_ID        OIDC client ID. Defaults to tenant-demo.
   INFERENCE_PROMPT      Inference prompt. Defaults to a short deterministic smoke-test prompt.
   INFERENCE_MAX_TOKENS  Maximum tokens for the inference request. Defaults to 32.
+  RATE_LIMIT_MAX_PROMPT_TOKENS
+                         Maximum generated prompt-token target for the rate-limit
+                         test. Defaults to 2048.
+  RATE_LIMIT_DELAY_SECONDS
+                         Delay between quota exhaustion and the 429 probe.
+                         Defaults to 1.
+  RATE_LIMIT_PROBE_ATTEMPTS
+                         Maximum number of 429 probe requests. Defaults to 3.
 EOF
 }
 
@@ -110,12 +119,18 @@ gateway_protocol="${GATEWAY_PROTOCOL:-http}"
 redirect_uri="${REDIRECT_URI:-}"
 inference_prompt="${INFERENCE_PROMPT:-Reply with: MaaS OIDC inference succeeded.}"
 inference_max_tokens="${INFERENCE_MAX_TOKENS:-32}"
+rate_limit_max_prompt_tokens="${RATE_LIMIT_MAX_PROMPT_TOKENS:-2048}"
+rate_limit_delay_seconds="${RATE_LIMIT_DELAY_SECONDS:-1}"
+rate_limit_probe_attempts="${RATE_LIMIT_PROBE_ATTEMPTS:-3}"
 
 case "$gateway_protocol" in
   http|https) ;;
   *) fail "GATEWAY_PROTOCOL must be http or https" ;;
 esac
 [[ "$inference_max_tokens" =~ ^[1-9][0-9]*$ ]] || fail "INFERENCE_MAX_TOKENS must be a positive integer"
+[[ "$rate_limit_max_prompt_tokens" =~ ^[1-9][0-9]*$ ]] || fail "RATE_LIMIT_MAX_PROMPT_TOKENS must be a positive integer"
+[[ "$rate_limit_delay_seconds" =~ ^[0-9]+$ ]] || fail "RATE_LIMIT_DELAY_SECONDS must be a non-negative integer"
+[[ "$rate_limit_probe_attempts" =~ ^[1-9][0-9]*$ ]] || fail "RATE_LIMIT_PROBE_ATTEMPTS must be a positive integer"
 
 keycloak_url=$(
   kubectl get configmap "$keycloak_config_map_name" -n "$keycloak_namespace" \
@@ -299,7 +314,12 @@ if [[ "$subscriptions_status" != 2* ]]; then
 fi
 
 subscription_count=$(jq 'length' "$subscriptions_response")
+owner_subscription_count=$(
+  jq '[.[] | select(((.roles // []) | length == 0) or ((.roles // []) | index("owner") != null))] | length' \
+    "$subscriptions_response"
+)
 printf '  subscription count: %s\n' "$subscription_count"
+printf '  owner-accessible subscription count: %s\n' "$owner_subscription_count"
 if (( subscription_count == 0 )); then
   printf '  subscriptions: none\n'
 else
@@ -312,7 +332,7 @@ else
 fi
 
 api_key_id=""
-if (( subscription_count > 0 )); then
+if (( owner_subscription_count > 0 )); then
   key_name="smoke-${user}-$(date +%s)"
   api_key_request=$(jq -n \
     --arg name "$key_name" \
@@ -356,7 +376,7 @@ if (( subscription_count > 0 )); then
   printf '  key file: %s\n' "$api_key_file"
 else
   print_section "POST /v1/api-keys"
-  printf '  skipped: no accessible subscription\n'
+  printf '  skipped: no owner-accessible subscription\n'
 fi
 
 api_key_list_request=$(jq -n '{
@@ -409,12 +429,17 @@ if [[ -n "$api_key_id" ]]; then
 fi
 
 inference_failed=0
+inference_succeeded=0
 
 if [[ -z "$api_key_id" ]]; then
   print_section "POST /v1/completions"
-  printf '  skipped: no API key was provisioned\n'
+  printf '  skipped: no owner-accessible API key was provisioned\n'
 else
-  inference_model=$(jq -r '.[0].model_refs[0].name // empty' "$subscriptions_response")
+  inference_model_ref=$(
+    jq -c '[.[] | select(((.roles // []) | length == 0) or ((.roles // []) | index("owner") != null))][0].model_refs[0] // empty' \
+      "$subscriptions_response"
+  )
+  inference_model=$(jq -r '.name // empty' <<<"$inference_model_ref")
   if [[ -z "$inference_model" ]]; then
     print_section "POST /v1/completions"
     printf '  skipped: no model is available through the subscription\n'
@@ -455,12 +480,135 @@ Prompt: $inference_prompt" || fail "inference request was not approved"
       printf '  finish reason: %s\n' "$(jq -r '.choices[0].finish_reason' "$completions_response")"
       printf '  prompt tokens: %s\n' "$(jq -r '.usage.prompt_tokens' "$completions_response")"
       printf '  completion tokens: %s\n' "$(jq -r '.usage.completion_tokens' "$completions_response")"
+      inference_succeeded=1
     fi
   fi
 fi
 
 if [ "$inference_failed" -ne 0 ]; then
   fail "completion request failed"
+fi
+
+if [[ "$inference_succeeded" -ne 1 ]]; then
+  print_section "Token rate limit"
+  printf '  skipped: inference was not completed\n'
+else
+  rate_limit=$(
+    jq -c '.token_rate_limits // [] | min_by(.limit) // empty' <<<"$inference_model_ref"
+  )
+
+  if [[ -z "$rate_limit" ]]; then
+    print_section "Token rate limit"
+    printf '  skipped: the selected model has no finite token rate limit\n'
+  else
+    rate_limit_limit=$(jq -r '.limit' <<<"$rate_limit")
+    rate_limit_window=$(jq -r '.window // "unknown"' <<<"$rate_limit")
+    [[ "$rate_limit_limit" =~ ^[1-9][0-9]*$ ]] || fail "the selected model has an invalid token rate limit"
+
+    used_tokens=$(jq -r '.usage.total_tokens // empty' "$completions_response")
+    [[ "$used_tokens" =~ ^[0-9]+$ ]] || fail "the selected model did not return usage.total_tokens"
+    if (( used_tokens >= rate_limit_limit )); then
+      remaining_tokens=0
+    else
+      remaining_tokens=$((rate_limit_limit - used_tokens))
+    fi
+    rate_limit_prompt_tokens=$((remaining_tokens + 8))
+
+    if (( rate_limit_prompt_tokens > rate_limit_max_prompt_tokens )); then
+      print_section "Token rate limit"
+      printf '  skipped: the %s-token exhaustion prompt exceeds RATE_LIMIT_MAX_PROMPT_TOKENS (%s)\n' \
+        "$rate_limit_prompt_tokens" "$rate_limit_max_prompt_tokens"
+    else
+      confirm_action "Send additional completion requests to exhaust and verify the subscription token rate limit.
+Endpoint: /v1/completions
+Model: $inference_model
+Configured limit: $rate_limit_limit tokens per $rate_limit_window
+The first request uses a dynamically sized prompt; up to $rate_limit_probe_attempts
+subsequent probes expect HTTP 429." ||
+        fail "rate-limit test was not approved"
+
+      printf -v rate_limit_prompt '%*s' "$rate_limit_prompt_tokens" ''
+      rate_limit_prompt="${rate_limit_prompt// /token }"
+      rate_limit_exhaust_request=$(jq -n \
+        --arg model "$inference_model" \
+        --arg prompt "$rate_limit_prompt" \
+        '{
+          model: $model,
+          prompt: $prompt,
+          max_tokens: 1
+        }')
+
+      rate_limit_exhaust_response="$tmpdir/rate-limit-exhaust-response.json"
+      rate_limit_exhaust_status=$(
+        curl -sS --max-time 60 \
+          -H "Authorization: Bearer $(cat "$api_key_file")" \
+          -H 'Content-Type: application/json' \
+          -d "$rate_limit_exhaust_request" \
+          -o "$rate_limit_exhaust_response" -w '%{http_code}' \
+          "$base_url/v1/completions" || true
+      )
+
+      print_section "Token rate limit"
+      printf '  configured limit: %s tokens per %s\n' "$rate_limit_limit" "$rate_limit_window"
+      printf '  tokens used by inference: %s\n' "$used_tokens"
+      printf '  generated prompt target: %s tokens\n' "$rate_limit_prompt_tokens"
+      printf '  exhaustion HTTP status: %s\n' "$rate_limit_exhaust_status"
+
+      if [[ "$rate_limit_exhaust_status" == "429" ]]; then
+        printf '  result: enforced\n'
+      else
+        if [[ "$rate_limit_exhaust_status" != 2* ]] ||
+          ! jq -e 'has("choices") and (.choices | length > 0)' "$rate_limit_exhaust_response" >/dev/null; then
+          jq . "$rate_limit_exhaust_response" >&2 || true
+          fail "rate-limit exhaustion request failed"
+        fi
+
+        printf '  exhaustion total tokens: %s\n' \
+          "$(jq -r '.usage.total_tokens // "unavailable"' "$rate_limit_exhaust_response")"
+        rate_limit_enforced=0
+        for (( probe_attempt = 1; probe_attempt <= rate_limit_probe_attempts; probe_attempt++ )); do
+          sleep "$rate_limit_delay_seconds"
+
+          rate_limit_probe_request=$(jq -n \
+            --arg model "$inference_model" \
+            --arg prompt "Reply with: rate-limit probe." \
+            '{
+              model: $model,
+              prompt: $prompt,
+              max_tokens: 1
+            }')
+
+          rate_limit_probe_response="$tmpdir/rate-limit-probe-response.json"
+          rate_limit_probe_status=$(
+            curl -sS --max-time 60 \
+              -H "Authorization: Bearer $(cat "$api_key_file")" \
+              -H 'Content-Type: application/json' \
+              -d "$rate_limit_probe_request" \
+              -o "$rate_limit_probe_response" -w '%{http_code}' \
+              "$base_url/v1/completions" || true
+          )
+
+          printf '  probe %s HTTP status: %s\n' "$probe_attempt" "$rate_limit_probe_status"
+          if [[ "$rate_limit_probe_status" == "429" ]]; then
+            rate_limit_enforced=1
+            break
+          fi
+          if [[ "$rate_limit_probe_status" != 2* ]] ||
+            ! jq -e 'has("choices") and (.choices | length > 0)' "$rate_limit_probe_response" >/dev/null; then
+            jq . "$rate_limit_probe_response" >&2 || true
+            fail "rate-limit probe request failed"
+          fi
+          printf '  probe %s total tokens: %s\n' \
+            "$probe_attempt" "$(jq -r '.usage.total_tokens // "unavailable"' "$rate_limit_probe_response")"
+        done
+
+        if [[ "$rate_limit_enforced" -ne 1 ]]; then
+          fail "token rate limit was not enforced after $rate_limit_probe_attempts probes"
+        fi
+        printf '  result: enforced\n'
+      fi
+    fi
+  fi
 fi
 
 print_section "Smoke result"
