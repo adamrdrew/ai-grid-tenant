@@ -3,7 +3,8 @@
 This app distributes the RHOAI installation prerequisites to every cluster
 in the reserved `global` ACM cluster set:
 
-- the protected `redhat-ai-grid` and `redhat-ods-operator` Namespaces;
+- the `redhat-ai-grid`, `redhat-ods-operator`, and
+  `openshift-operators-redhat` Namespaces;
 - the same `ImageDigestMirrorSet` used by the hub;
 - the `openshift-marketplace/rhoai-catalog-pull-secret` required to pull the
   RHOAI catalog image;

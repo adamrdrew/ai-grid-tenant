@@ -35,6 +35,12 @@ spec:
                 apiVersion: v1
                 kind: Namespace
                 metadata:
+                  name: openshift-operators-redhat
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Namespace
+                metadata:
                   name: ai-grid-internal-models
                   annotations:
                     argocd.argoproj.io/sync-wave: "0"
