@@ -60,7 +60,7 @@ docs/acm/cluster-onboarding/import-managed-cluster.sh --spoke-context <spoke> --
 
 The hub manages the grid: CA, grid ID, policies. It needs no Grid CRDs. Running Grid workloads on it is optional.
 
-Needs ACM as above and cert-manager.
+Needs ACM as above and cert-manager. The RHOAI app installs cert-manager on the hub, so a hub that is not a site installs it separately.
 
 Install grid-enrollment on the hub with the grid-bootstrap app. Its values, [apps/grid-bootstrap/values.yaml](../../../apps/grid-bootstrap/values.yaml):
 
@@ -93,6 +93,8 @@ external:
 ```
 
 The lab keeps its CA with mode Existing. A new grid uses mode Generate.
+
+Nothing else to run. The root ApplicationSet picks up [apps/grid-bootstrap/application.yaml](../../../apps/grid-bootstrap/application.yaml), which installs the chart on the hub with these values. Change them by committing to this file.
 
 Onboard a cluster by labelling its ManagedCluster. Unlabelling withdraws it but keeps its GridNetwork.
 
