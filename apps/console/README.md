@@ -21,7 +21,7 @@ on the hub, installed from its Helm chart: one pod with kube-auth-proxy
   managed cluster's indexed resources: more than the GPU nodes it asks for, so
   the backend stays behind the console's sign-in (the file says why).
 - **Models and subscriptions:** commits to the catalog repository,
-  [ai-grid-cloud/ai-grid-1-catalog](https://github.com/ai-grid-cloud/ai-grid-1-catalog),
+  [adamrdrew/ai-grid-aig1-catalog](https://github.com/adamrdrew/ai-grid-aig1-catalog),
   which `apps/acm-models` delivers and `apps/ai-grid-policies` reports on.
   That URL is the one value another environment changes, here
   (`backend.git.url`) and in `apps/acm-models/hub/catalog-*`.

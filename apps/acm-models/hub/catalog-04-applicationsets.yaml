@@ -1,5 +1,5 @@
 # The provider console's catalog: the models and subscriptions it commits to
-# ai-grid-cloud/ai-grid-1-catalog, on the clusters Placement acm-models-catalog
+# adamrdrew/ai-grid-aig1-catalog, on the clusters Placement acm-models-catalog
 # selects. That repository URL is the one value a deployment changes.
 #
 # Models: catalog/clusters/<cluster>/ lists the models placed on that cluster
@@ -31,8 +31,8 @@ spec:
                 matchLabels:
                   cluster.open-cluster-management.io/placement: acm-models-catalog
           - git:
-              repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
-              revision: main
+              repoURL: https://github.com/adamrdrew/ai-grid-aig1-catalog.git
+              revision: master
               directories:
                 - path: 'catalog/clusters/{{.name}}'
   template:
@@ -42,8 +42,8 @@ spec:
     spec:
       project: acm-models-catalog-models
       source:
-        repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
-        targetRevision: main
+        repoURL: https://github.com/adamrdrew/ai-grid-aig1-catalog.git
+        targetRevision: master
         path: '{{.path.path}}'
         kustomize: {}
       destination:
@@ -93,8 +93,8 @@ spec:
                 matchLabels:
                   cluster.open-cluster-management.io/placement: acm-models-catalog
           - git:
-              repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
-              revision: main
+              repoURL: https://github.com/adamrdrew/ai-grid-aig1-catalog.git
+              revision: master
               directories:
                 - path: 'catalog/ingress'
   template:
@@ -108,8 +108,8 @@ spec:
     spec:
       project: acm-models-catalog-maas
       source:
-        repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
-        targetRevision: main
+        repoURL: https://github.com/adamrdrew/ai-grid-aig1-catalog.git
+        targetRevision: master
         path: '{{.path.path}}'
         kustomize: {}
       destination:
@@ -159,8 +159,8 @@ spec:
                 matchLabels:
                   cluster.open-cluster-management.io/placement: acm-models-catalog
           - git:
-              repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
-              revision: main
+              repoURL: https://github.com/adamrdrew/ai-grid-aig1-catalog.git
+              revision: master
               directories:
                 - path: 'catalog/subscriptions'
   template:
@@ -174,8 +174,8 @@ spec:
     spec:
       project: acm-models-catalog-maas
       source:
-        repoURL: https://github.com/ai-grid-cloud/ai-grid-1-catalog.git
-        targetRevision: main
+        repoURL: https://github.com/adamrdrew/ai-grid-aig1-catalog.git
+        targetRevision: master
         path: '{{.path.path}}'
         directory:
           include: "*.yaml"

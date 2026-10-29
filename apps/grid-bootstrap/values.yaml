@@ -27,6 +27,6 @@ external:
       create: true
       name: grid-ca
     ca:
-      # Preserve the existing CA while external issuance takes over identities.
-      mode: Existing
+      # Create a new CA for this isolated lab grid.
+      mode: Generate
       secretName: grid-ca-key

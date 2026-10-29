@@ -92,7 +92,8 @@ external:
       secretName: grid-ca-key
 ```
 
-The lab keeps its CA with mode Existing. A new grid uses mode Generate.
+The upstream lab keeps its CA with mode Existing. This aig-1 lab branch uses
+mode Generate to create a new CA.
 
 Nothing else to run. The root ApplicationSet picks up [apps/grid-bootstrap/application.yaml](../../../apps/grid-bootstrap/application.yaml), which installs the chart on the hub with these values. Change them by committing to this file.
 

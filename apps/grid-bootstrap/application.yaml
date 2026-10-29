@@ -6,8 +6,8 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: https://github.com/kahowell/ai-grid-tenant.git
-      targetRevision: HEAD
+    - repoURL: https://github.com/adamrdrew/ai-grid-tenant.git
+      targetRevision: lab/aig1-hub-catalog
       ref: values
     - repoURL: https://github.com/opendatahub-io/odh-gitops.git
       targetRevision: feature-ai-grid
