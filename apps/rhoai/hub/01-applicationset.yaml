@@ -105,6 +105,13 @@ spec:
         server: '{{ if eq .name "local-cluster" }}https://kubernetes.default.svc{{ else }}{{ .server }}{{ end }}'
         namespace: redhat-ai-grid
       ignoreDifferences:
+        # The enrollment policy now supplies the complete network configuration.
+        # Keep the existing chart and its operator config RBAC during handoff.
+        - group: grid.praxis.fast
+          kind: GridNetwork
+          name: grid
+          jsonPointers:
+            - /spec
         # OpenShift injects a generated dockercfg pull secret into this
         # OLM-owned ServiceAccount. Ignore only that controller-generated entry
         # so Argo still owns the explicit catalog pull secret.
