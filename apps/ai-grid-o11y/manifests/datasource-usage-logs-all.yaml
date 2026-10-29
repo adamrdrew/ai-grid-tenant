@@ -27,13 +27,13 @@ spec:
                 method: GET
               - endpointPattern: "/loki/api/v1/label/([a-zA-Z0-9_-]+)/values"
                 method: GET
+            secret: usage-logs-all-secret
   client:
     kubernetesAuth:
       enable: true
     tls:
       enable: true
-      insecureSkipVerify: false
       caCert:
         type: configmap
-        name: usage-logs-ca-bundle
+        name: usage-logs-gateway-ca-bundle
         certPath: service-ca.crt
