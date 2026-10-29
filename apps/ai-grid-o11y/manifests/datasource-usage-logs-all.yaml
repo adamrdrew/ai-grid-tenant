@@ -1,0 +1,39 @@
+apiVersion: perses.dev/v1alpha1
+kind: PersesDatasource
+metadata:
+  name: usage-logs-all
+  namespace: ai-grid-o11y
+  labels:
+    app.kubernetes.io/managed-by: maas-controller
+    app.kubernetes.io/component: perses
+spec:
+  config:
+    display:
+      name: "All usage (logs)"
+    default: false
+    plugin:
+      kind: "LokiDatasource"
+      spec:
+        proxy:
+          kind: HTTPProxy
+          spec:
+            url: 'https://usage-logs-gateway-http.ai-grid-o11y.svc.cluster.local:8080/api/logs/v1/application'
+            allowedEndpoints:
+              - endpointPattern: "/loki/api/v1/query"
+                method: GET
+              - endpointPattern: "/loki/api/v1/query_range"
+                method: GET
+              - endpointPattern: "/loki/api/v1/labels"
+                method: GET
+              - endpointPattern: "/loki/api/v1/label/([a-zA-Z0-9_-]+)/values"
+                method: GET
+  client:
+    kubernetesAuth:
+      enable: true
+    tls:
+      enable: true
+      insecureSkipVerify: false
+      caCert:
+        type: configmap
+        name: usage-logs-ca-bundle
+        certPath: service-ca.crt
