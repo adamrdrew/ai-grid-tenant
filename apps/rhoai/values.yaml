@@ -12,9 +12,13 @@ operator:
       createNamespace: false
       config:
         env:
-          # Validation build from praxis-proxy/grid commit 3a5fa6f74943fcb0175263bae1be455e7b355ad8.
+          # Validation build from praxis-proxy/grid commit 7fc86e557e2fea6e064056ba33e17a02350d8a37.
           - name: RELATED_IMAGE_ODH_PRAXIS_AI_GRID_OPERATOR_IMAGE
-            value: quay.io/sbatsche/grid-operator@sha256:46aed6e0be3e925dc0c2c007e62be93afbd6775fa7b6865b1a712d81a19eaffd
+            value: quay.io/sbatsche/grid-operator@sha256:0ed65dbf57ca597714ed01eb7c7fe33580eadae1075760659785f704d1959b92
+          # KServe validation build 01bc7d290ebb9880e313d8e302472cf2ec0d8618.
+          # Stored under lab-kserve-llmisvc-01bc7d290 in the writable lab repository.
+          - name: RELATED_IMAGE_ODH_KSERVE_LLMISVC_CONTROLLER_IMAGE
+            value: quay.io/sbatsche/grid-operator@sha256:77dc985f76c18bef2a11c565c2da9c87cde7381368e492c2d5e38d4cf918dfd3
 # Workaround for https://redhat.atlassian.net/browse/RHOAIENG-99507:
 # RHACM's multicluster-observability-addon also installs COO with its own
 # OperatorGroup (named after the namespace), which conflicts with the chart's
@@ -202,8 +206,8 @@ grid-enrollment:
     swimKeySecretName: grid-swim-key
     seedSecretName: grid-reserved-seeds
 
-# Nothing here declares a GridNetwork or GridSite: the operator creates its own
-# records from its identity. flavor is explicit because the chart only infers
+# The enrollment policy delivers GridNetwork; the operator publishes its local
+# GridSite from its identity. flavor is explicit because the chart only infers
 # grid-gateway from a repository name ending in /grid-gateway, which the RHOAI
 # image does not.
 praxis-gateway:

@@ -16,7 +16,12 @@ spec:
     name: smollm2-135m-instruct
   replicas: 3
   router:
-    scheduler: { }
+    scheduler:
+      template:
+        containers:
+          - name: main
+            args:
+              - --metrics-cert-dir=/var/run/kserve/tls
     route: { }
     gateway:
       refs:
