@@ -12,6 +12,8 @@ metadata:
   annotations:
     # Retain the existing identity while enrollment takes over configuration.
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    # Leaves the app Synced once this source is removed and the policy owns the record.
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
 spec:
   signalTransport:
     mode: poll
