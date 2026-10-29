@@ -27,6 +27,7 @@ external:
       create: true
       name: grid-ca
     ca:
-      # Create a new CA for this isolated lab grid.
-      mode: Generate
+      # The RHOAI enrollment service created this lab's CA. Reuse its key;
+      # generating another certificate here conflicts with its CA bundle.
+      mode: Existing
       secretName: grid-ca-key

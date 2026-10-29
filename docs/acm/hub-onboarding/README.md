@@ -92,8 +92,9 @@ external:
       secretName: grid-ca-key
 ```
 
-The upstream lab keeps its CA with mode Existing. This aig-1 lab branch uses
-mode Generate to create a new CA.
+The RHOAI enrollment service creates this aig-1 lab's CA. The external
+bootstrap uses mode Existing so it does not issue a competing certificate
+into the same Secret.
 
 Nothing else to run. The root ApplicationSet picks up [apps/grid-bootstrap/application.yaml](../../../apps/grid-bootstrap/application.yaml), which installs the chart on the hub with these values. Change them by committing to this file.
 

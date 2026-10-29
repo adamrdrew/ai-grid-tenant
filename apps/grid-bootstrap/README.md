@@ -5,8 +5,9 @@ This hub Application deploys the existing `grid-enrollment` chart from
 inventory-based enrollment through the common ACM/OCM APIs. The chart itself
 has no Argo-specific switch.
 
-This new lab grid generates `redhat-ai-grid/grid-ca-key` once. Keep and back up
-that signing key; later syncs must retain it. Selected clusters have the `ai-grid/enabled`
+The RHOAI enrollment service generates `redhat-ai-grid/grid-ca-key` once.
+This external bootstrap reuses that key. Keep and back up the signing key;
+later syncs must retain it. Selected clusters have the `ai-grid/enabled`
 label and use their ManagedCluster name as the site identity. The hub is enrolled
 through the same flow as other members.
 
