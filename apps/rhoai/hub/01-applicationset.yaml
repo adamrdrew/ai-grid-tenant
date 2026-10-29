@@ -66,19 +66,6 @@ spec:
           path: apps/ai-grid-o11y/spoke
           directory:
             exclude: '{{ if eq .name "local-cluster" }}*{{ end }}'
-        - repoURL: https://github.com/kahowell/ai-grid-tenant.git
-          targetRevision: HEAD
-          path: apps/rhoai/grid-network
-          helm:
-            releaseName: grid-network
-            # A site may declare the record only once it holds the enrolled
-            # identity, so the file turning it on is the record of that.
-            ignoreMissingValueFiles: true
-            valueFiles:
-              - $values/apps/rhoai/grid-network-{{ .name }}.yaml
-            parameters:
-              - name: siteName
-                value: '{{ .name }}'
         # The file is required: the chart has no enable switch.
         - repoURL: https://github.com/opendatahub-io/odh-gitops.git
           targetRevision: feature-ai-grid

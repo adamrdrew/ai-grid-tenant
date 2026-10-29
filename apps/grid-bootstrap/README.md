@@ -34,12 +34,10 @@ addresses. It waits for CRDs and Local network enrollment before writing the
 GridSite; router addresses are discovered on each member rather than stored in
 Git. The enrollment chart's observers then distribute those endpoints to peers.
 
-During the ownership handoff, the existing GridNetwork chart remains installed
-with prune/delete protection and its operator config-read RBAC. Argo ignores the
-network spec so the enrollment policy owns configuration. Remove the legacy
-network template only after verifying the retained object and identity. The
-old enrollment service, SWIM delivery, and manual provider record remain for a
-separate cleanup after Local discovery is verified.
+The enrollment policy is the only source of each member's GridNetwork. The
+operator's config-read RBAC comes from `policies/operator-config-rbac.yaml` until
+the platform's Grid manifests carry it. The old enrollment service and the
+manual provider record remain for a separate cleanup.
 
 ## Verify the rollout
 
