@@ -22,8 +22,8 @@ spec:
     spec:
       project: default
       sources:
-        - repoURL: https://github.com/kahowell/ai-grid-tenant.git
-          targetRevision: HEAD
+        - repoURL: https://github.com/adamrdrew/ai-grid-tenant.git
+          targetRevision: lab/aig1-hub-catalog
           ref: values
         # Temporary v0.3.0-rc.2 schemas until the RHOAI manifest bundle catches up.
         # The overlay hands CRD management to Argo and protects them from pruning.
@@ -55,11 +55,11 @@ spec:
               - name: dependencies.loki.olm.createNamespace
                 value: '{{ ne .name "local-cluster" | toString }}'
         # The enrollment service runs on the hub, so a managed cluster excludes these.
-        - repoURL: https://github.com/kahowell/ai-grid-tenant.git
-          targetRevision: HEAD
+        - repoURL: https://github.com/adamrdrew/ai-grid-tenant.git
+          targetRevision: lab/aig1-hub-catalog
           path: apps/rhoai/local-cluster
           directory:
-            exclude: '{{ if eq .name "local-cluster" }}{{ else }}*{{ end }}'
+            exclude: '{{ if eq .name "local-cluster" }}40-declared-peer-ai-grid-2.yaml{{ else }}*{{ end }}'
         # The hub collects through ai-grid-o11y; a managed cluster's collector needs its own copies.
         - repoURL: https://github.com/kahowell/ai-grid-tenant.git
           targetRevision: HEAD
