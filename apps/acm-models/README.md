@@ -6,33 +6,28 @@ Grid `ExternalProvider` are owned by the RHOAI apps.
 
 ## Scheduler metrics
 
-Without them a provider reports `Ready=Unknown`, reason
-`MetricsNotConfigured`, and its candidate publishes no load. The RHOAI
-prerequisites policy admits `redhat-ai-grid` to the scheduler's metrics port:
+The Gateway's serving configuration enables `publishMetrics: true`, so the
+model controller publishes each provider's metrics endpoint from the scheduler
+Service and its metrics port. The RHOAI prerequisites policy admits
+`redhat-ai-grid` to that port.
 
-```yaml
-spec:
-  metricsConfig:
-    endpoint: http://<model>-epp-service.ai-grid-internal-models.svc.cluster.local:9090
-    path: /metrics
-    timeout: 2s
-    auth:
-      type: serviceAccountToken
-      allowPlaintext: true
-```
+The model definitions enable the HTTPS listener with
+`--metrics-cert-dir=/var/run/kserve/tls`, using the scheduler's existing serving
+certificate. The controller image pinned in `apps/rhoai/values.yaml` declares
+`appProtocol: https` from this setting and creates per-model ServiceMonitors
+that verify the serving certificate. This image pin is temporary until the
+platform payload includes that behavior.
 
-Set by hand: provider names carry the source UID and change on every recreate.
-[odh-model-controller#986](https://github.com/opendatahub-io/odh-model-controller/pull/986)
-generates it once it ships, enabled by `publishMetrics: true` in the Gateway's
-serving configuration. Do not set that key before the controller supports it;
-the annotation is strict-unmarshalled, so an unknown key publishes no provider
-at all.
+The model controller then publishes HTTPS metrics with service-account token
+authentication and the `openshift-service-ca.crt` trust bundle in the Grid
+namespace. Plaintext token transport remains disabled. New model definitions
+also need the metrics TLS argument until the platform's scheduler preset
+provides it.
 
-`allowPlaintext` is lab-only. The metrics port declares no `appProtocol`, so the
-token crosses in the clear; declaring `appProtocol: https` is the fix.
-
-Scraping looks like `Ready=True` with a ready-endpoint count and
-`MetricsAvailable=True`, reason `ScrapeSucceeded`.
+After reconciliation, verify the scheduler metrics Service declares HTTPS,
+the provider's `metricsConfig.endpoint` uses HTTPS, and `MetricsAvailable=True`
+reports `ScrapeSucceeded`. Prometheus target health alone does not prove the
+Grid operator is successfully scraping provider metrics.
 
 ## The provider console's catalog
 
@@ -74,9 +69,10 @@ with no MaaS entry: delete its LLMInferenceService by hand.
 - `ai-grid-catalog-status`: each MaaSModelRef and ExternalModel is Ready, and each MaaSSubscription and
   MaaSAuthPolicy is Active.
 
-**Not routed by the grid yet.** A catalog model is deployed and registered in MaaS, but MaaS reaches it through
-the grid's gateways, and those list their backends by hand (`deployment/clusters/*`, plus a declared
-InferenceProvider for a model on another site) until odh-model-controller#986 publishes them. So the console can
-show a model Ready while a request to it finds no route, until its backend is added.
+The model controller publishes InferenceProviders automatically. The gateway
+backend entries in the RHOAI values files still need to match the providers
+that each gateway serves. A catalog model can therefore report Ready before
+its gateway backend is configured; model readiness alone does not prove that
+requests through MaaS and the Grid gateway can reach it.
 
 Keep anything privileged out of the catalog repository: whoever holds the console's token can write it.
