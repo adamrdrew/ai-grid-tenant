@@ -9,9 +9,9 @@ Use a one-time, parameterized `clusteradm` import for the initial cluster
 registration. After ACM accepts the cluster, the existing GitOps resources
 discover it dynamically:
 
-1. `../../apps/acm-models/hub/facebook-opt-125m-01-placement.yaml`
+1. `../../../apps/acm-models/hub/facebook-opt-125m-01-placement.yaml`
    selects clusters in the reserved `global` cluster set.
-2. `../../apps/acm-models/hub/facebook-opt-125m-02-gitops-cluster.yaml`
+2. `../../../apps/acm-models/hub/gitops-cluster.yaml`
    registers selected clusters with Argo CD.
 3. The repository's ApplicationSets generate applications for each registered
    cluster.
@@ -42,7 +42,7 @@ export CLUSTER_NAME='<stable-acm-cluster-name>'
 Preview and run the import:
 
 ```sh
-docs/acm-cluster-onboarding/import-managed-cluster.sh \
+docs/acm/cluster-onboarding/import-managed-cluster.sh \
   --hub-context "$HUB_CONTEXT" \
   --spoke-context "$SPOKE_CONTEXT" \
   --cluster-name "$CLUSTER_NAME"
