@@ -16,6 +16,9 @@ spec:
         releaseName: grid-bootstrap
         valueFiles:
           - $values/apps/grid-bootstrap/values.yaml
+    - repoURL: https://github.com/kahowell/ai-grid-tenant.git
+      targetRevision: HEAD
+      path: apps/grid-bootstrap/policies
   destination:
     server: https://kubernetes.default.svc
     namespace: redhat-ai-grid

@@ -10,6 +10,11 @@ operator:
       channel: stable-3.6
       # ACM owns this Red Hat managed Namespace; OSD rejects Argo writes to it.
       createNamespace: false
+      config:
+        env:
+          # Validation build from praxis-proxy/grid commit 3a5fa6f74943fcb0175263bae1be455e7b355ad8.
+          - name: RELATED_IMAGE_ODH_PRAXIS_AI_GRID_OPERATOR_IMAGE
+            value: quay.io/sbatsche/grid-operator@sha256:46aed6e0be3e925dc0c2c007e62be93afbd6775fa7b6865b1a712d81a19eaffd
 # Workaround for https://redhat.atlassian.net/browse/RHOAIENG-99507:
 # RHACM's multicluster-observability-addon also installs COO with its own
 # OperatorGroup (named after the namespace), which conflicts with the chart's

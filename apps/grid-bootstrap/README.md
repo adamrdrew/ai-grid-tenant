@@ -16,13 +16,35 @@ watches public endpoint metadata and distributes remote GridSites to peers,
 with a site-only operator ConfigMap on each member. Model discovery uses the
 Local operator's HTTPS provider catalog. The CA signing key remains on the hub.
 
-This is the identity-preparation phase. The existing enrollment service stays
-running and operator runtime membership is not changed by these values. Merge
-the ODH chart update first. After identities and policies reconcile, use the
-separate runtime cutover to select Local membership on every site, publish local
-endpoints, and remove the service and SWIM delivery.
+Bootstrap now persists the grid ID in the immutable `grid-bootstrap-state`
+ConfigMap. It adopts an existing GridNetwork ID, including a legacy status-only
+ID, before generating one for a new grid. Enrollment waits for the GridNetwork
+and GridSite CRDs to be Established and for the identity Secrets, then delivers
+the complete network with Local membership, poll transport, SPIFFE trust, and
+the per-cluster gateway reference.
 
-## Verify before runtime cutover
+The temporary operator and bootstrap image digests are built from
+[`praxis-proxy/grid` commit `3a5fa6f`](https://github.com/praxis-proxy/grid/commit/3a5fa6f74943fcb0175263bae1be455e7b355ad8)
+with the repository Containerfiles and `CARGO_PROFILE=dev`. They are amd64
+validation builds, pullable without additional credentials. The operator uses
+the existing RHOAI Subscription image override; bootstrap uses the chart's
+normal image value. Replace these pins with released images after validation.
+
+Merge the chart update providing work-agent GridSite read permissions before
+this rollout. The local-endpoints policy creates a passthrough signals Route and
+publishes each member's source GridSite using admitted gateway and signals Route
+addresses. It waits for CRDs and Local network enrollment before writing the
+GridSite; router addresses are discovered on each member rather than stored in
+Git. The enrollment chart's observers then distribute those endpoints to peers.
+
+During the ownership handoff, the existing GridNetwork chart remains installed
+with prune/delete protection and its operator config-read RBAC. Argo ignores the
+network spec so the enrollment policy owns configuration. Remove the legacy
+network template only after verifying the retained object and identity. The
+old enrollment service, SWIM delivery, and manual provider record remain for a
+separate cleanup after Local discovery is verified.
+
+## Verify the rollout
 
 Use an explicit hub context and inspect metadata, not Secret data:
 
@@ -32,6 +54,9 @@ kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get issuers.cert-manager.io g
 kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get certificates.cert-manager.io
 kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get policies.policy.open-cluster-management.io
 kubectl --context "$HUB_CONTEXT" get manifestworks.work.open-cluster-management.io -A
+kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get configmap grid-bootstrap-state
+kubectl --context "$HUB_CONTEXT" get gridnetworks.grid.praxis.fast,gridsites.grid.praxis.fast
+kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get routes grid-provider-gateway grid-operator-signals
 kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get secret grid-ca-key \
   -o jsonpath='{.metadata.uid}{"\n"}'
 ```
@@ -39,8 +64,12 @@ kubectl --context "$HUB_CONTEXT" -n redhat-ai-grid get secret grid-ca-key \
 The CA UID must be unchanged, both site Certificates Ready, and identity policies
 Compliant. Check each cluster's `grid-site-identity` has the corresponding
 `cert-manager.io/certificate-name` annotation and that its GridNetwork accepts the
-identity. During preparation an observer can report missing endpoints; the runtime
-cutover declares each member's source GridSite and signals Route.
+identity. Each member must have the same persisted grid ID, `membership.mode:
+Local`, poll transport, and SPIFFE trust. Check each observer's
+`status.resourceStatus`: successful root-policy compliance alone does not prove
+the work agent can read GridSites. Both observers must return gateway and signals
+endpoint feedback. Confirm Local mode in operator logs and provider catalog
+discovery before removing the manual provider record.
 
 Read-only observers must never overwrite source GridSites. After cutover, change
 one source endpoint through Git and verify it appears on the other member without
@@ -48,7 +77,12 @@ copying status or changing the source. Restore the endpoint through Git. Removal
 of a selection label withdraws peer records and stops certificate renewal; verify
 withdrawal before removing identities or detaching a cluster. The CA is retained.
 
-If preparation fails, fix or revert these policies through Git while retaining
+If rollout fails, fix configuration through Git while retaining
 the CA and identities. Removing a Certificate stops renewal but does not revoke
 an issued certificate or guarantee deletion of its Secret. Do not switch the CA
 to Generate as a recovery action.
+
+Do not roll back by deleting the GridNetwork or bootstrap ConfigMap. Disabling
+`gridIdentity.enabled` stops policy delivery but deliberately retains the network;
+a runtime rollback needs an explicit reviewed membership change. Record the
+pre-rollout ID and CA UID, and preserve both throughout recovery.

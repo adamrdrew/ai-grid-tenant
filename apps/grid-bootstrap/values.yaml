@@ -1,5 +1,11 @@
 mode: external
 fullnameOverride: grid-bootstrap
+# Validation build from praxis-proxy/grid commit 3a5fa6f74943fcb0175263bae1be455e7b355ad8.
+image:
+  repository: quay.io/sbatsche/grid-enrollment
+  digest: sha256:0b392b1ade38419383a666a4c7d91cfed661f0498b670c8323f9c2650e98f258
+gridIdentity:
+  enabled: true
 grid:
   membership:
     source: Local
