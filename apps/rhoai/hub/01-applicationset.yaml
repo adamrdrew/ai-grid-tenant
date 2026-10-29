@@ -66,17 +66,6 @@ spec:
           path: apps/ai-grid-o11y/spoke
           directory:
             exclude: '{{ if eq .name "local-cluster" }}*{{ end }}'
-        # The file is required: the chart has no enable switch.
-        - repoURL: https://github.com/opendatahub-io/odh-gitops.git
-          targetRevision: feature-ai-grid
-          path: charts/rhai-on-openshift-chart/charts/praxis-gateway
-          helm:
-            releaseName: grid-provider-gateway
-            valueFiles:
-              - $values/apps/rhoai/provider-gateway-{{ .name }}.yaml
-            parameters:
-              - name: grid.siteName
-                value: '{{ .name }}'
         - repoURL: https://github.com/kahowell/ai-grid-tenant.git
           targetRevision: HEAD
           path: apps/rhoai/catalog
@@ -127,7 +116,9 @@ spec:
             - '.spec.ports[] | select(.name == "http") | .nodePort'
       syncPolicy:
         automated:
-          prune: true
+          # Paused while the grid-provider-gateway ApplicationSet adopts the provider gateway,
+          # so this Application never deletes it. Restore prune: true once adopted.
+          prune: false
           selfHeal: true
         retry:
           refresh: true

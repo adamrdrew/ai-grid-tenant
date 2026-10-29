@@ -1,0 +1,74 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  # One provider gateway per cluster that has apps/rhoai/provider-gateway-<cluster>.yaml.
+  # Kept out of the rhoai Application so a new cluster installs RHOAI without that file.
+  name: grid-provider-gateway
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  apps.open-cluster-management.io/acm-cluster: "true"
+          - git:
+              repoURL: https://github.com/kahowell/ai-grid-tenant.git
+              revision: HEAD
+              files:
+                - path: 'apps/rhoai/provider-gateway-{{ .name }}.yaml'
+  template:
+    metadata:
+      name: 'grid-provider-gateway-{{ .name | trunc 30 }}-{{ sha256sum .name | trunc 8 }}'
+      namespace: openshift-gitops
+    spec:
+      project: default
+      sources:
+        - repoURL: https://github.com/kahowell/ai-grid-tenant.git
+          targetRevision: HEAD
+          ref: values
+        - repoURL: https://github.com/opendatahub-io/odh-gitops.git
+          targetRevision: feature-ai-grid
+          path: charts/rhai-on-openshift-chart/charts/praxis-gateway
+          helm:
+            releaseName: grid-provider-gateway
+            valueFiles:
+              - $values/apps/rhoai/provider-gateway-{{ .name }}.yaml
+            parameters:
+              - name: grid.siteName
+                value: '{{ .name }}'
+      # Same destination rule as the rhoai Applications: the hub through Argo's in-cluster server.
+      destination:
+        server: '{{ if eq .name "local-cluster" }}https://kubernetes.default.svc{{ else }}{{ .server }}{{ end }}'
+        namespace: redhat-ai-grid
+      ignoreDifferences:
+        - group: ""
+          kind: Service
+          name: grid-provider-gateway
+          namespace: redhat-ai-grid
+          jsonPointers:
+            - /spec/type
+          jqPathExpressions:
+            - '.metadata.annotations["service.beta.kubernetes.io/aws-load-balancer-internal"]'
+            - '.metadata.annotations["service.beta.kubernetes.io/aws-load-balancer-type"]'
+            - '.spec.ports[] | select(.name == "http") | .nodePort'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          refresh: true
+          limit: 20
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 30m
+        syncOptions:
+          - CreateNamespace=false
+          - SkipDryRunOnMissingResource=true
+          - RespectIgnoreDifferences=true
