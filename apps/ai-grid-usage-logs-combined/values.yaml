@@ -1,0 +1,5 @@
+# A combined hub also runs MaaS, so its local-cluster must receive the same
+# usage-log read credential and exporter configuration as other MaaS sites.
+spokePolicy:
+  placement:
+    excludeLocalCluster: false
