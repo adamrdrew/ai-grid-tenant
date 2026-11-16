@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # The default (combined-hub) root discovers this Application. The dedicated
+  # root uses apps/ai-grid-usage-logs/application.yaml instead.
+  name: ai-grid-usage-logs
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/adamrdrew/ai-grid-tenant.git
+      targetRevision: lab/combined-hub-two-inference-2026-11-16
+      ref: values
+
+    # RHOAI already owns the Loki operator on a combined hub. Reuse only the
+    # token-provisioning Jobs and ACM hub-template RBAC from the dedicated app.
+    - repoURL: https://github.com/adamrdrew/ai-grid-tenant.git
+      targetRevision: lab/combined-hub-two-inference-2026-11-16
+      path: apps/ai-grid-usage-logs/manifests
+      directory:
+        exclude: 00-loki-operator.yaml
+
+    # The base values turn off the store and its identities because
+    # apps/ai-grid-o11y owns them. The combined override includes local-cluster
+    # in the policy that delivers the read credential and exporter configuration.
+    - repoURL: https://github.com/opendatahub-io/odh-gitops.git
+      targetRevision: main
+      path: charts/rhai-on-openshift-chart/charts/ai-grid-o11y-hub
+      helm:
+        releaseName: ai-grid-usage-logs
+        valueFiles:
+          - $values/apps/ai-grid-usage-logs/values.yaml
+          - $values/apps/ai-grid-usage-logs-combined/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: redhat-ods-monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      refresh: true
+      limit: 20
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m
+    syncOptions:
+      - CreateNamespace=false
+      - SkipDryRunOnMissingResource=true

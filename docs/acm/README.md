@@ -92,6 +92,9 @@ Guide: [AI project onboarding](ai-project-onboarding/README.md).
 ## Verification
 
 - Hub: every Application Synced and Healthy, Policies Compliant.
+- Usage logs: `ai-grid-usage-logs` generated, its Policy Compliant, and
+  `redhat-ai-gateway-infra/usage-logs-loki` present on each ingress or combined
+  site, including a combined hub. See [usage-log verification](../../apps/ai-grid-usage-logs/README.md#verify).
 - Site: every InferenceProvider Available.
 - End to end: the [MaaS smoke test](../maas-oidc-smoke/README.md) gets a
   completion as a tenant user.

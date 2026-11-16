@@ -4,6 +4,13 @@ The delivery half of AI Grid MaaS usage logs. Each site's RHOAI collector
 forwards usage records off-cluster; this app tells it where to send them and
 gives it the credential to do so.
 
+The dedicated-hub root uses this Application, including its Loki operator
+prerequisite. The default root uses
+`apps/ai-grid-usage-logs-combined/application.yaml` instead. That Application
+reuses the policy and token Jobs below, excludes the operator manifest already
+owned by RHOAI, and includes `local-cluster` in the Placement because a combined
+hub runs MaaS itself. Both profiles use the same hub store and credentials.
+
 It renders no store, and keeps no copy of the store's settings.
 `apps/ai-grid-o11y` owns all of it:
 
@@ -105,6 +112,14 @@ kubectl --context <site> get dsci default-dsci \
 kubectl --context <site> get secret usage-logs-loki -n redhat-ai-gateway-infra \
   -o go-template='{{.metadata.name}} {{.type}}{{"\n"}}'
 
+# on each ingress or combined site, the Secret enables maas-api's read proxy
+kubectl --context <site> -n redhat-ai-gateway-infra get deployment maas-api -o json | \
+  jq -r '.spec.template.spec.containers[].env[]?.name | select(startswith("LOKI_READ_"))'
+kubectl --context <site> -n redhat-ods-monitoring get persesdatasource usage-logs-multi-tenancy \
+  -o jsonpath='{.spec.config.plugin.spec.proxy.spec.url}{"\n"}'
+# The datasource URL should be:
+# https://maas-api.redhat-ai-gateway-infra.svc.cluster.local:8443/v1/logs?only_user=true
+
 # and it can query the hub store with it
 ENDPOINT=$(kubectl --context <site> get secret usage-logs-loki -n redhat-ai-gateway-infra \
   -o jsonpath='{.data.LOKI_READ_ENDPOINT}' | base64 -d)
@@ -126,6 +141,9 @@ curl -sS -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
 the token is valid Kubernetes-wise but the reader identity's grant is missing.
 A TLS failure without `--cacert` that succeeds with it means the spoke consumer
 is not appending the delivered CA to its system trust pool.
+Refresh the tenant portal's Observability page as a tenant user and confirm its
+queries succeed. A successful labels query alone does not verify the portal's
+datasource or that usage records are being exported.
 
 A record pushed at a site collector's receiver should arrive in the hub store
 with `cluster_name`, `model`, `service_name`, `organization_id`, and `user_id`

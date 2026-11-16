@@ -120,6 +120,16 @@ Nothing else to run. The root ApplicationSet picks up [apps/grid-bootstrap/appli
 
 Onboard a cluster by labelling its ManagedCluster `ai-grid/enabled=true` and `ai-grid/role` (`ingress`, `inference` or `combined`). Together they install RHOAI in that role, and `ai-grid/enabled` joins the grid; without a role nothing is installed ([apps/ai-grid-spokes](../../../apps/ai-grid-spokes/README.md)). Unlabelling withdraws it from the grid and stops managing those workloads, but does not uninstall them, and keeps its GridNetwork; its MaaS database replica and the catalog's MaaS objects and subscriptions there are the exceptions, deleted because they hold or grant tenants' access.
 
+On a combined hub, the default root also generates
+`apps/ai-grid-usage-logs-combined/application.yaml`. It mints the hub's usage-log
+read and write credentials and delivers them by ACM Policy to ingress and
+combined sites, including `local-cluster`. RHOAI already installs the Loki
+operator there, so this Application excludes that prerequisite while reusing
+the dedicated-hub delivery manifests. Verify the Policy, the hub's
+`redhat-ai-gateway-infra/usage-logs-loki` Secret, the Perses datasource URL and
+a successful tenant usage query as described in the
+[usage-log runbook](../../../apps/ai-grid-usage-logs/README.md#verify).
+
 The hub is a site only if labelled. Proposed: managedClusters.includeHub, default false, excludes the hub from membership whatever its labels.
 
 Verify: membership policies Compliant, each member's GridNetwork Active with the grid ID.
