@@ -173,13 +173,21 @@ spec:
         server: '{{ if eq (index .metadata.labels "local-cluster") "true" }}https://kubernetes.default.svc{{ else }}{{ .server }}{{ end }}'
         namespace: redhat-ai-grid
       ignoreDifferences:
+        # The hostname policy discovers the managed cluster's ingress domain.
+        - group: route.openshift.io
+          kind: Route
+          name: maas-gateway-route
+          namespace: openshift-ingress
+          jsonPointers:
+            - /spec/host
         - group: gateway.networking.k8s.io
           kind: Gateway
           name: maas-default-gateway
           namespace: openshift-ingress
           jqPathExpressions:
-            - '.spec.listeners[] | select(.name == "http") | .hostname'
-            - '.spec.listeners[] | select(.name == "https") | .hostname'
+            # The combined role uses a Route, so Argo removes old listener hostnames.
+            - '.spec.listeners[] | select(.name == "http" and "{{ index .metadata.labels "ai-grid/role" }}" != "combined") | .hostname'
+            - '.spec.listeners[] | select(.name == "https" and "{{ index .metadata.labels "ai-grid/role" }}" != "combined") | .hostname'
         # OpenShift injects a generated dockercfg pull secret into this
         # OLM-owned ServiceAccount. Ignore only that controller-generated entry
         # so Argo still owns the explicit catalog pull secret.

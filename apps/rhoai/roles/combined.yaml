@@ -11,6 +11,14 @@ dependencies:
           - home-keycloak-ca
 
 components:
+  aigateway:
+    modelsAsAService:
+      gateway:
+        # The OpenShift router owns the wildcard apps domain. Expose MaaS through
+        # its Route; the hostname policy fills in this cluster's ingress domain.
+        openshiftRoute:
+          enabled: true
+          host: maas.apps.example.com
   kserve:
     gateway:
       spec:

@@ -1,7 +1,7 @@
 {{- $gateway := .Values.components.aigateway.modelsAsAService.gateway }}
 {{- /* Route mode: the Route's host is the external name, and a listener hostname breaks its SNI. */}}
 {{- $routeMode := (($gateway.openshiftRoute | default dict).enabled | default false) }}
-{{- if and (ne (.Values.role | default "") "inference") (not $routeMode) }}
+{{- if ne (.Values.role | default "") "inference" }}
 {{- $hostnamePrefix := index $gateway.annotations "ai-grid/maas-gateway-hostname-prefix" }}
 {{- if not $hostnamePrefix }}{{ fail "components.aigateway.modelsAsAService.gateway.annotations.ai-grid/maas-gateway-hostname-prefix is required" }}{{ end }}
 apiVersion: policy.open-cluster-management.io/v1
@@ -17,6 +17,15 @@ spec:
   object-templates:
     - complianceType: musthave
       objectDefinition:
+        {{- if $routeMode }}
+        apiVersion: route.openshift.io/v1
+        kind: Route
+        metadata:
+          name: {{ $gateway.openshiftRoute.name | default "maas-gateway-route" }}
+          namespace: {{ $gateway.namespace }}
+        spec:
+          host: '{{ $hostnamePrefix }}.{{ "{{" }} (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain {{ "}}" }}'
+        {{- else }}
         apiVersion: gateway.networking.k8s.io/v1
         kind: Gateway
         metadata:
@@ -28,4 +37,5 @@ spec:
               hostname: '{{ $hostnamePrefix }}.{{ "{{" }} (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain {{ "}}" }}'
             - name: https
               hostname: '{{ $hostnamePrefix }}.{{ "{{" }} (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain {{ "}}" }}'
+        {{- end }}
 {{- end }}

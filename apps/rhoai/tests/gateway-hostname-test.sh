@@ -44,8 +44,8 @@ assert parameters == {"clusterNamespace": "{{ .name }}",
 differences = next(item for item in appset["spec"]["template"]["spec"]["ignoreDifferences"]
                    if item.get("kind") == "Gateway")
 assert differences["jqPathExpressions"] == [
-    '.spec.listeners[] | select(.name == "http") | .hostname',
-    '.spec.listeners[] | select(.name == "https") | .hostname',
+    '.spec.listeners[] | select(.name == "http" and "{{ index .metadata.labels "ai-grid/role" }}" != "combined") | .hostname',
+    '.spec.listeners[] | select(.name == "https" and "{{ index .metadata.labels "ai-grid/role" }}" != "combined") | .hostname',
 ]
 PY
 
@@ -55,11 +55,22 @@ inference_objects=$(helm template rhoai-gateway-hostname "$HERE/../gateway-hostn
   grep -c '^kind:' || true)
 [ "$inference_objects" = 0 ] || { echo "gateway-hostname renders $inference_objects objects for role inference" >&2; exit 1; }
 
-# Route mode: the Route's host is the external name, so no listener hostname is set.
-route_objects=$(helm template rhoai-gateway-hostname "$HERE/../gateway-hostname" \
+# Route mode: the policy discovers the external name from the cluster ingress domain.
+helm template rhoai-gateway-hostname "$HERE/../gateway-hostname" \
   -f "$HERE/../values.yaml" --set clusterNamespace=target-cluster --set role=ingress \
-  --set components.aigateway.modelsAsAService.gateway.openshiftRoute.enabled=true |
-  grep -c '^kind:' || true)
-[ "$route_objects" = 0 ] || { echo "gateway-hostname renders $route_objects objects in Route mode" >&2; exit 1; }
+  --set components.aigateway.modelsAsAService.gateway.openshiftRoute.enabled=true > "$TMP_DIR/route.yaml"
+python3 - "$TMP_DIR/route.yaml" <<'PY'
+import sys
+import yaml
+
+documents = [doc for doc in yaml.safe_load_all(open(sys.argv[1])) if doc]
+assert len(documents) == 1
+policy = documents[0]
+assert policy["kind"] == "ConfigurationPolicy"
+route = policy["spec"]["object-templates"][0]["objectDefinition"]
+assert route["kind"] == "Route"
+assert route["metadata"] == {"name": "maas-gateway-route", "namespace": "openshift-ingress"}
+assert route["spec"]["host"] == 'maas.{{ (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain }}'
+PY
 
 echo "gateway-hostname tests: 3 ok, 0 failed"
