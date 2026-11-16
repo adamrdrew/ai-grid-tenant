@@ -1,25 +1,6 @@
 apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding
 metadata:
-  name: maas-db-replication-secrets
-  namespace: maas-db
-  annotations:
-    # TODO(maas-db): Split replication-secret distribution into an Application
-    # gated on CloudNativePG primary readiness, then move this binding after
-    # the generated database Applications.
-    argocd.argoproj.io/sync-wave: "3"
-placementRef:
-  apiGroup: cluster.open-cluster-management.io
-  kind: Placement
-  name: maas-db-remote-clusters
-subjects:
-  - apiGroup: policy.open-cluster-management.io
-    kind: Policy
-    name: maas-db-replication-secrets
----
-apiVersion: policy.open-cluster-management.io/v1
-kind: PlacementBinding
-metadata:
   name: maas-db-api-credentials
   namespace: maas-db
   annotations:
