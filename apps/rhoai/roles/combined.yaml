@@ -3,6 +3,7 @@ profile: ai-grid-combined
 dependencies:
   rhcl:
     config:
+      tlsEnabled: true
       authorinoTrustedCA:
         configMaps:
           - odh-trusted-ca-bundle
