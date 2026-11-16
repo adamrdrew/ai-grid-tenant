@@ -10,6 +10,10 @@ prerequisite. The default root uses
 reuses the policy and token Jobs below, excludes the operator manifest already
 owned by RHOAI, and includes `local-cluster` in the Placement because a combined
 hub runs MaaS itself. Both profiles use the same hub store and credentials.
+On a combined hub, the default root also lets MaaS own the
+`usage-logs-all` Perses datasource URL and CA fields. The hub's
+`ai-grid-o11y` chart declares the original direct-Loki URL; Argo restoring it
+would send the admin Usage tab away from the MaaS proxy after the Secret arrives.
 
 It renders no store, and keeps no copy of the store's settings.
 `apps/ai-grid-o11y` owns all of it:
@@ -119,6 +123,10 @@ kubectl --context <site> -n redhat-ods-monitoring get persesdatasource usage-log
   -o jsonpath='{.spec.config.plugin.spec.proxy.spec.url}{"\n"}'
 # The datasource URL should be:
 # https://maas-api.redhat-ai-gateway-infra.svc.cluster.local:8443/v1/logs?only_user=true
+kubectl --context <site> -n redhat-ods-monitoring get persesdatasource usage-logs-all \
+  -o jsonpath='{.spec.config.plugin.spec.proxy.spec.url}{"\n"}'
+# On a combined hub, the admin URL should have the same MaaS API path without
+# the only_user query parameter.
 
 # and it can query the hub store with it
 ENDPOINT=$(kubectl --context <site> get secret usage-logs-loki -n redhat-ai-gateway-infra \
