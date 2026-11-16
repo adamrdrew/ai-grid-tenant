@@ -1,5 +1,5 @@
 # The catalog: models and subscriptions the provider console commits to
-# ai-grid-cloud/ai-grid-shared-catalog. Models go to inference and combined spokes
+# adamrdrew/ai-grid-catalog. Models go to inference and combined spokes
 # (Placement ai-grid-inference), MaaS objects to ingress and combined spokes
 # (ai-grid-ingress); both Placements are apps/ai-grid-spokes'.
 #
@@ -42,8 +42,8 @@ spec:
                         apps.open-cluster-management.io/acm-cluster: "true"
                         name: '{{ .clusterName }}'
           - git:
-              repoURL: https://github.com/ai-grid-cloud/ai-grid-shared-catalog.git
-              revision: main
+              repoURL: https://github.com/adamrdrew/ai-grid-catalog.git
+              revision: master
               directories:
                 - path: 'catalog/clusters/{{.name}}'
   template:
@@ -53,8 +53,8 @@ spec:
     spec:
       project: acm-models-catalog-models
       source:
-        repoURL: https://github.com/ai-grid-cloud/ai-grid-shared-catalog.git
-        targetRevision: main
+        repoURL: https://github.com/adamrdrew/ai-grid-catalog.git
+        targetRevision: master
         path: '{{.path.path}}'
         kustomize: {}
       destination:
@@ -115,8 +115,8 @@ spec:
                         apps.open-cluster-management.io/acm-cluster: "true"
                         name: '{{ .clusterName }}'
           - git:
-              repoURL: https://github.com/ai-grid-cloud/ai-grid-shared-catalog.git
-              revision: main
+              repoURL: https://github.com/adamrdrew/ai-grid-catalog.git
+              revision: master
               directories:
                 - path: 'catalog/ingress'
   template:
@@ -130,8 +130,8 @@ spec:
     spec:
       project: acm-models-catalog-maas
       source:
-        repoURL: https://github.com/ai-grid-cloud/ai-grid-shared-catalog.git
-        targetRevision: main
+        repoURL: https://github.com/adamrdrew/ai-grid-catalog.git
+        targetRevision: master
         path: '{{.path.path}}'
         kustomize: {}
       destination:
@@ -191,8 +191,8 @@ spec:
                         apps.open-cluster-management.io/acm-cluster: "true"
                         name: '{{ .clusterName }}'
           - git:
-              repoURL: https://github.com/ai-grid-cloud/ai-grid-shared-catalog.git
-              revision: main
+              repoURL: https://github.com/adamrdrew/ai-grid-catalog.git
+              revision: master
               directories:
                 - path: 'catalog/subscriptions'
   template:
@@ -206,8 +206,8 @@ spec:
     spec:
       project: acm-models-catalog-maas
       source:
-        repoURL: https://github.com/ai-grid-cloud/ai-grid-shared-catalog.git
-        targetRevision: main
+        repoURL: https://github.com/adamrdrew/ai-grid-catalog.git
+        targetRevision: master
         path: '{{.path.path}}'
         directory:
           include: "*.yaml"

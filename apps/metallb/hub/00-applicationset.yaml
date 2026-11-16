@@ -25,11 +25,11 @@ spec:
     spec:
       project: default
       sources:
-        - repoURL: https://github.com/ai-grid-cloud/ai-grid-cluster-gitops.git
-          targetRevision: HEAD
+        - repoURL: https://github.com/adamrdrew/ai-grid-tenant.git
+          targetRevision: lab/combined-hub-two-inference-2026-11-16
           ref: values
-        - repoURL: https://github.com/ai-grid-cloud/ai-grid-cluster-gitops.git
-          targetRevision: HEAD
+        - repoURL: https://github.com/adamrdrew/ai-grid-tenant.git
+          targetRevision: lab/combined-hub-two-inference-2026-11-16
           path: apps/metallb/chart
           helm:
             releaseName: metallb
