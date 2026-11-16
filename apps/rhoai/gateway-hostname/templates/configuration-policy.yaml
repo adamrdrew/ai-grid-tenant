@@ -25,21 +25,6 @@ spec:
           namespace: {{ $gateway.namespace }}
         spec:
           host: '{{ $hostnamePrefix }}.{{ "{{" }} (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain {{ "}}" }}'
-    # A previous load balancer configuration may have set listener hostnames.
-    # The re-encrypt Route presents the Service name as SNI, so clear them.
-    - complianceType: musthave
-      objectDefinition:
-        apiVersion: gateway.networking.k8s.io/v1
-        kind: Gateway
-        metadata:
-          name: {{ $gateway.name }}
-          namespace: {{ $gateway.namespace }}
-        spec:
-          listeners:
-            - name: http
-              hostname: null
-            - name: https
-              hostname: null
         {{- else }}
         apiVersion: gateway.networking.k8s.io/v1
         kind: Gateway

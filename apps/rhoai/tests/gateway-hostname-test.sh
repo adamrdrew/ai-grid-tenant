@@ -71,12 +71,6 @@ route = policy["spec"]["object-templates"][0]["objectDefinition"]
 assert route["kind"] == "Route"
 assert route["metadata"] == {"name": "maas-gateway-route", "namespace": "openshift-ingress"}
 assert route["spec"]["host"] == 'maas.{{ (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain }}'
-gateway = policy["spec"]["object-templates"][1]["objectDefinition"]
-assert gateway["kind"] == "Gateway"
-assert gateway["spec"]["listeners"] == [
-    {"name": "http", "hostname": None},
-    {"name": "https", "hostname": None},
-]
 PY
 
 echo "gateway-hostname tests: 3 ok, 0 failed"
