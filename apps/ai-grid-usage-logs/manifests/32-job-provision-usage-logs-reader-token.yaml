@@ -16,21 +16,23 @@
 #
 # Idempotent: if the stored token is still a JWT with more than a week left
 # before expiry *and* the recorded endpoint already matches the Route, the Job
-# does nothing. So a repeated sync (PostSync hooks run on every sync) does not
+# does nothing. So a repeated sync (Sync hooks run on every sync) does not
 # rotate a healthy credential, while expiry, deletion of the Secret, a Route
 # host change, or a manually shortened token triggers a re-mint on the next
 # sync -- rotation is the same operation as creation.
 #
-# Wave ordering is handled by the hook type: PostSync runs after every wave of
-# this Application. The Loki operator may still be reconciling the Route at
-# that point, so the Job waits for its host rather than failing.
+# Wave 5 follows the provisioner RBAC in wave 3 and hub-template RBAC in wave 4.
+# It precedes the Policy in wave 6, which needs this Secret to become Compliant.
+# The Loki operator may still be reconciling the Route, so the Job waits for
+# its host rather than failing.
 apiVersion: batch/v1
 kind: Job
 metadata:
   generateName: provision-usage-logs-reader-token-
   namespace: redhat-ods-monitoring
   annotations:
-    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/sync-wave: "5"
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
   template:
@@ -56,7 +58,7 @@ spec:
               # apps/ai-grid-o11y's LokiStack, so it exists without this app
               # rendering a store -- but not until that app has synced and the
               # operator has reconciled. Wait rather than fail: the Job runs
-              # as a PostSync hook, and the Route appearing late is normal.
+              # as a Sync hook, and the Route appearing late is normal.
               endpoint=""
               for _ in $(seq 1 60); do
                 route_host="$(oc get route ${ROUTE_NAME} -n ${ROUTE_NAMESPACE} \

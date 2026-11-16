@@ -48,7 +48,7 @@ the Argo CD repo-server renders without cluster access.
 ## Token minting
 
 The chart does not create the tokens, because a ServiceAccount token is not a
-declarative object. Two PostSync Jobs mint them instead —
+declarative object. Two Sync-hook Jobs mint them before the ACM Policy —
 `manifests/31-job-provision-usage-logs-writer-token.yaml` and
 `manifests/32-job-provision-usage-logs-reader-token.yaml` — running as the
 ServiceAccount from `manifests/30-rbac-provision-usage-logs-tokens.yaml`.
@@ -57,7 +57,7 @@ so the tokens never appear in a managed cluster's manifest.
 
 Both Jobs are idempotent: they decode the stored token's JWT expiry and do
 nothing while more than a week remains and (for the reader) the recorded
-endpoint still matches the store Route. PostSync hooks run on every sync, so
+endpoint still matches the store Route. Sync hooks run on every sync, so
 repeated syncs do not rotate a healthy credential — while expiry, deletion of
 the Secret, or a Route host change triggers a re-mint on the next sync. The
 Policy re-resolves the Secret and each site picks up the new values, so
