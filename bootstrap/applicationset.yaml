@@ -76,6 +76,17 @@ spec:
               destination:
                 server: https://kubernetes.default.svc
                 namespace: open-cluster-management-observability
+              # MaaS switches this admin datasource to its OIDC-aware Loki proxy
+              # once usage-logs-loki arrives. The chart supplies only the
+              # pre-credential default; Argo must not restore that URL later.
+              ignoreDifferences:
+                - group: perses.dev
+                  kind: PersesDatasource
+                  name: usage-logs-all
+                  namespace: redhat-ods-monitoring
+                  jsonPointers:
+                    - /spec/config/plugin/spec/proxy/spec/url
+                    - /spec/client/tls/caCert
               syncPolicy:
                 automated:
                   prune: true
@@ -90,6 +101,7 @@ spec:
                 syncOptions:
                   - CreateNamespace=true
                   - SkipDryRunOnMissingResource=true
+                  - RespectIgnoreDifferences=true
   template:
     metadata:
       name: '{{.metadata.name}}'
