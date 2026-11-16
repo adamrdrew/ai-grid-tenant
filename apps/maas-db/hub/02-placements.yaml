@@ -26,6 +26,8 @@ metadata:
   namespace: maas-db
   annotations:
     argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipHealthCheck=true
+    argocd.argoproj.io/ignore-healthcheck: "true"
 spec:
   clusterSets:
     - global
