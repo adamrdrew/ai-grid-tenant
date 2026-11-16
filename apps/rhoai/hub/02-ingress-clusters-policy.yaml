@@ -210,3 +210,42 @@ spec:
                     # Verify the gateway's service-ca certificate. A path already mounted in the
                     # calling proxy; the controller never reads certificate bytes.
                     tls.caCertificates: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+
+    # Route mode leaves the Gateway HTTPS listener without a hostname so the
+    # OpenShift router can re-encrypt to its Service certificate. The portal
+    # routes still have the public host, so their Envoy virtual host shadows
+    # wildcard MaaS API and model routes unless those routes use the same host.
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: rhoai-maas-route-hostnames
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates-raw: |
+            {{- $host := printf "maas.%s" (lookup "config.openshift.io/v1" "Ingress" "" "cluster").spec.domain }}
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: gateway.networking.k8s.io/v1
+                kind: HTTPRoute
+                metadata:
+                  name: maas-api-route
+                  namespace: redhat-ai-gateway-infra
+                spec:
+                  hostnames: ['{{ $host }}']
+            {{- range $route := (lookup "gateway.networking.k8s.io/v1" "HTTPRoute" "models-as-a-service" "").items }}
+            {{- range $parent := $route.spec.parentRefs }}
+            {{- if eq $parent.name "maas-default-gateway" }}
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: gateway.networking.k8s.io/v1
+                kind: HTTPRoute
+                metadata:
+                  name: '{{ $route.metadata.name }}'
+                  namespace: models-as-a-service
+                spec:
+                  hostnames: ['{{ $host }}']
+            {{- end }}
+            {{- end }}
+            {{- end }}
