@@ -40,17 +40,17 @@ ingest:
 spokePolicy:
   enabled: true
 
-  # Applied last, after the store and its storage-key hook.
+  # Applied after the token-provisioning Sync hooks in wave 5.
   #
   # Argo CD has a health check for ACM Policy that maps NonCompliant to
-  # Degraded, and this policy is legitimately NonCompliant until RHOAI exists on
-  # the spoke to receive the credential. In wave 0 that failed the sync on every
-  # cycle, which starved the wave-1 hook that creates the store's object-storage
-  # Secret. In the last wave it cannot block anything that matters.
+  # Degraded. It needs the token Secrets before ACM can resolve its hub
+  # templates, so putting it ahead of the Jobs would block the Jobs and leave
+  # the policy permanently NonCompliant. A site without RHOAI can still keep it
+  # NonCompliant until that site's install completes.
   #
   # Helm merges maps, so the chart's own standards annotation is kept.
   annotations:
-    argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-wave: "6"
 
   # Deliver both the token and the collector configuration.
   #
