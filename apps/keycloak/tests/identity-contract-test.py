@@ -11,12 +11,10 @@ import yaml
 
 
 APP = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-ROOT = os.path.normpath(os.path.join(APP, "../.."))
 OVERLAYS = ("core", "default", "direct")
 FIRST_BROKER_LOGIN_FLOW = "first broker login"
 LOCAL_MAPPER = "AI Grid local username"
 PREFERRED_USERNAME_MAPPER = "AI Grid preferred username"
-ORG_2 = "53d4f57e-3588-55e8-b96c-4ec54a7c42fa"
 
 
 def render(overlay):
@@ -162,24 +160,6 @@ def check_tenant_client_scopes(documents):
         assert {"profile", "email"} <= scopes, (name, scopes)
 
 
-def check_maas_policy():
-    path = os.path.join(
-        ROOT,
-        "apps/acm-models/maas/policies/"
-        "20-tenant-53d4f57e-3588-55e8-b96c-4ec54a7c42fa-maas-policies.yaml",
-    )
-    with open(path) as stream:
-        documents = list(yaml.safe_load_all(stream))
-    assert len(documents) == 2, documents
-    subscription, policy = documents
-    assert subscription["spec"]["owner"] == {
-        "groups": [{"name": f"{ORG_2}/ai-grid-bob"}]
-    }
-    assert policy["spec"]["subjects"] == {
-        "groups": [{"name": f"{ORG_2}/ai-grid-bob"}]
-    }
-
-
 def check_profile_username_mapper_sync():
     """Realm sync makes the profile scope's username mapper read the attribute."""
     path = os.path.join(APP, "base/manifests/scripts/sync-saas-realm.py")
@@ -237,7 +217,6 @@ def main():
             check_identity_providers(realms[overlay])
             check_tenant_2_fixture(documents)
             check_tenant_client_scopes(documents)
-    check_maas_policy()
     print("identity contract render checks: ok")
 
 

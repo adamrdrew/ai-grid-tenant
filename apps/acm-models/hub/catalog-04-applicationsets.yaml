@@ -75,14 +75,13 @@ spec:
             maxDuration: 10m
         syncOptions:
           - SkipDryRunOnMissingResource=true
-          # Never adopt an object another Application manages, such as a
-          # sample model. A colliding file stops that cluster's catalog sync
-          # until it's fixed.
+          # Never adopt an object another Application manages. A colliding
+          # file stops that cluster's catalog sync until it's fixed.
           - FailOnSharedResource=true
 ---
 # Each ingress and combined spoke registers every catalog model in MaaS: catalog/ingress/ is a
 # kustomization of catalog/models/<id>/catalog (the ExternalModel and
-# MaaSModelRef), as maas-externalmodels does for the sample model.
+# MaaSModelRef).
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -152,9 +151,8 @@ spec:
             maxDuration: 10m
         syncOptions:
           - SkipDryRunOnMissingResource=true
-          # Never adopt an object another Application manages, such as a
-          # sample model. A colliding file stops that cluster's catalog sync
-          # until it's fixed.
+          # Never adopt an object another Application manages. A colliding
+          # file stops that cluster's catalog sync until it's fixed.
           - FailOnSharedResource=true
 ---
 # Each ingress and combined spoke gets every subscription: catalog/subscriptions/<id>.yaml, a
@@ -229,7 +227,6 @@ spec:
             maxDuration: 10m
         syncOptions:
           - SkipDryRunOnMissingResource=true
-          # Never adopt an object another Application manages, such as a
-          # sample model. A colliding file stops that cluster's catalog sync
-          # until it's fixed.
+          # Never adopt an object another Application manages. A colliding
+          # file stops that cluster's catalog sync until it's fixed.
           - FailOnSharedResource=true

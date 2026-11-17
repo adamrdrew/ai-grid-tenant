@@ -1,22 +1,16 @@
 # Internal model deployments
 
-This app owns the internal `LLMInferenceService` deployment and its
-model-facing MaaS resources. Supporting namespaces, NetworkPolicies, and the
-Grid `ExternalProvider` are owned by the RHOAI apps.
-
-The sample model goes to AI Grid sites where models run (Placement
-`ai-grid-inference`), and its MaaS objects to sites that run MaaS
-(`ai-grid-ingress`); both Placements are `apps/ai-grid-spokes`'. An unlabelled
-hub gets neither.
+This app delivers the provider console's catalog to AI Grid sites. Supporting
+namespaces, NetworkPolicies, and the Grid `ExternalProvider` are owned by the
+RHOAI apps. No model or subscription is deployed until the provider console
+writes one to the catalog.
 
 ## Chat completions
 
-Every model, sample or catalog, must serve `/v1/chat/completions`: the MaaS
-portal's usage example and playground call it, and its `ExternalModel` routes
-every request there. A model must ship a chat template or get one with vLLM's
-`--chat-template`. facebook-opt-125m is a base model without one, so it uses
-vLLM's bundled ChatML template. A base model without a template is not
-supported.
+Every catalog model must serve `/v1/chat/completions`: the MaaS portal's usage
+example and playground call it, and its `ExternalModel` routes every request
+there. A model must ship a chat template or get one with vLLM's
+`--chat-template`. A base model without a template is not supported.
 
 ## Scheduler metrics
 
@@ -68,34 +62,14 @@ that repository, no cluster-scoped kinds, and only the kinds the console writes:
 - `acm-models-catalog-models`: LLMInferenceService and NetworkPolicy.
 - `acm-models-catalog-maas`: ExternalModel, MaaSModelRef, MaaSSubscription and MaaSAuthPolicy.
 
-A catalog file that collides with an object another Application manages, such as a sample model, stops that
+A catalog file that collides with an object another Application manages stops that
 cluster's catalog sync until it's fixed (`FailOnSharedResource`). The provider backend refuses to create a model
 whose LLMInferenceService, NetworkPolicy, ExternalModel or MaaSModelRef another Application already deploys, and
 names that Application.
 
-### Moving a sample model into the catalog
-
-One Application owns each object. To hand a sample model to the catalog:
-
-1. Remove the model from this repository: its files under `apps/acm-models/<model>/` and `maas/externalmodels/`,
-   and its Placement and ApplicationSet under `hub/`.
-2. Wait for Argo CD to prune them. `acm-models-maas-<cluster>` deletes the ExternalModel and MaaSModelRef on each
-   ingress spoke, and deleting the model's ApplicationSet deletes its Applications and their LLMInferenceService.
-   Check that no LLMInferenceService of that name is left in `ai-grid-internal-models` on the inference spokes, and
-   delete any by hand.
-3. Create the model in the provider console. If the console created it before the sample was removed, its
-   `acm-models-catalog-ingress-<cluster>` Application has stopped retrying: sync it once.
-4. Check that the catalog's Applications are Synced, the console reports the model published, and a tenant's
-   authenticated request reaches it.
-
-MaaS has no entry for the model between steps 2 and 3, and a subscription that names it reports the
-reference unavailable until the catalog's copy exists. smollm2-135m-instruct moved this way; the tenant
-subscriptions in `maas/policies/` no longer name it.
-
-Deletion differs by design. Deleting the models ApplicationSet, or a cluster's folder, leaves its models running
+Deleting a catalog models ApplicationSet or a cluster's folder leaves its models running
 (`preserveResourcesOnDeletion`). Deleting an ingress or subscriptions Application deletes its MaaS objects with
-it (the resources finalizer), so no access outlives its Application. A teardown can therefore leave a model running
-with no MaaS entry: delete its LLMInferenceService by hand.
+it (the resources finalizer), so no access outlives its Application.
 
 `apps/ai-grid-policies` reports the catalog's state back to the hub, where the console reads it:
 
