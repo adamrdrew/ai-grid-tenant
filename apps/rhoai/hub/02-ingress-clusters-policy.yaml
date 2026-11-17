@@ -151,6 +151,10 @@ spec:
                   name: default-tenant
                   namespace: models-as-a-service
                 spec:
+                  # Preserve public /v1/completions for GUI-deployed base models.
+                  # Translation currently routes these requests to the chat API.
+                  apiTranslation:
+                    enabled: false
                   telemetry:
                     enabled: true
                     metrics:
