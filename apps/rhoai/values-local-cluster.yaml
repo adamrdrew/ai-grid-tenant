@@ -1,0 +1,15 @@
+# The hub is an ingress-only Grid site. Keep the public MaaS Route that the
+# combined role supplied before the hub's ManagedCluster role changed.
+dependencies:
+  rhcl:
+    config:
+      tlsEnabled: true
+
+components:
+  aigateway:
+    modelsAsAService:
+      gateway:
+        openshiftRoute:
+          enabled: true
+          # The hostname policy replaces this placeholder with the hub's apps domain.
+          host: maas.apps.example.com
