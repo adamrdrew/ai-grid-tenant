@@ -34,7 +34,7 @@
 # Modelled on apps/keycloak/manifests/public-url-policy.yaml, which does the same
 # thing for Keycloak's public URL.
 #
-# Wave 4: before the Policy in wave 5, after the store that owns the Route.
+# Wave 4: before the Policy in wave 6, after the store that owns the Route.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -97,7 +97,7 @@ roleRef:
 # configuration, not credentials, and rhoai's ingress-clusters policy makes the
 # identical grant for the same reason.
 #
-# Wave 4: same as the other templating Roles, before the Policy in wave 5.
+# Wave 4: same as the other templating Roles, before the Policy in wave 6.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

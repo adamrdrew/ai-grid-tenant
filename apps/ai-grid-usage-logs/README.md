@@ -56,6 +56,9 @@ declarative object. Two Sync-hook Jobs mint them before the ACM Policy —
 `manifests/31-job-provision-usage-logs-writer-token.yaml` and
 `manifests/32-job-provision-usage-logs-reader-token.yaml` — running as the
 ServiceAccount from `manifests/30-rbac-provision-usage-logs-tokens.yaml`.
+Their RBAC is applied in wave 3, before the Jobs; the consuming Policy follows
+in wave 5. PostSync would deadlock the first sync because the Policy needs
+these Secrets to become Healthy.
 ACM reads the Secrets with `fromSecret` and ships `$ocm_encrypted` ciphertext,
 so the tokens never appear in a managed cluster's manifest.
 
