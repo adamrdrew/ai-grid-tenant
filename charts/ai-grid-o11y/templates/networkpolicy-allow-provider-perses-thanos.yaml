@@ -1,0 +1,26 @@
+# The provider console queries this datasource through the cluster-wide Perses
+# instance. The RHOAI-owned Thanos proxy policy only admits the local
+# data-science-perses pod, so allow the cluster-wide instance as well.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-provider-perses-thanos-proxy
+  namespace: redhat-ods-monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: data-science-thanos-querier-proxy
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-cluster-observability-operator
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: perses
+              app.kubernetes.io/instance: perses
+      ports:
+        - protocol: TCP
+          port: 8443
