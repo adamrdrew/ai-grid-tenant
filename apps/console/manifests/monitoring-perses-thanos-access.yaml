@@ -1,0 +1,26 @@
+# The provider console uses the Cluster Observability Operator's Perses.
+# RHOAI's operator-owned policy for this proxy admits its own Perses pod, but
+# does not admit the COO instance in a separate namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-coo-perses-to-data-science-thanos
+  namespace: redhat-ods-monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: data-science-thanos-querier-proxy
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-cluster-observability-operator
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: perses
+              app.kubernetes.io/managed-by: perses-operator
+      ports:
+        - protocol: TCP
+          port: 8443
